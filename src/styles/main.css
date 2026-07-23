@@ -1,0 +1,21 @@
+/* 全局样式 - 保持透明桌宠 */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 禁止文本选中（桌宠不需要） */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
