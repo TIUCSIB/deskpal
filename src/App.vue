@@ -5,12 +5,12 @@
  */
 import { ref, watch } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import Pet from './components/Pet.vue'
-import InfoPanel from './components/InfoPanel.vue'
-import ChatBubble from './components/ChatBubble.vue'
-import ContextMenu from './components/ContextMenu.vue'
-import { useSystemInfo } from './composables/useSystemInfo'
-import { usePetState } from './composables/usePetState'
+import Pet from '@/components/Pet.vue'
+import InfoPanel from '@/components/InfoPanel.vue'
+import ChatBubble from '@/components/ChatBubble.vue'
+import ContextMenu from '@/components/ContextMenu.vue'
+import { useSystemInfo } from '@/composables/useSystemInfo'
+import { usePetState } from '@/composables/usePetState'
 
 const { info } = useSystemInfo()
 const {

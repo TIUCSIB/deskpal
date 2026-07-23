@@ -1,6 +1,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { SystemInfo } from '../types/system'
+import type { SystemInfo } from '@/types/system'
 
 const POLL_INTERVAL = 2000 // 2 秒轮询一次
 

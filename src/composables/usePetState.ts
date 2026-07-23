@@ -1,5 +1,5 @@
-import { ref, computed, watch } from 'vue'
-import type { SystemInfo, PetMood } from '../types/system'
+import { ref } from 'vue'
+import type { SystemInfo, PetMood } from '@/types/system'
 
 /**
  * 桌宠状态管理

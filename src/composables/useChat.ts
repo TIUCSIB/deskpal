@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { SystemInfo, PetMood } from '../types/system'
+import type { SystemInfo, PetMood } from '@/types/system'
 
 interface ChatMessage {
   text: string
@@ -46,8 +46,6 @@ function generateReply(
   }
 
   // —— 根据心情生成闲聊 ——
-  const hour = new Date().getHours()
-
   if (mood === 'warning' && info) {
     if (info.cpu_usage > 80) {
       return `CPU 负载有点高（${info.cpu_usage.toFixed(1)}%），看看是不是有程序卡住了？`

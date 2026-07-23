@@ -4,7 +4,7 @@
  * 显示 CPU / 内存 / 磁盘使用率和运行时间
  */
 import { computed } from 'vue'
-import type { SystemInfo } from '../types/system'
+import type { SystemInfo } from '@/types/system'
 
 const props = defineProps<{ info: SystemInfo | null }>()
 

@@ -4,8 +4,8 @@
  * 点击桌宠后弹出，支持简单聊天
  */
 import { nextTick, ref, watch } from 'vue'
-import type { SystemInfo, PetMood } from '../types/system'
-import { useChat, getGreeting } from '../composables/useChat'
+import type { SystemInfo, PetMood } from '@/types/system'
+import { useChat, getGreeting } from '@/composables/useChat'
 
 const props = defineProps<{
   info: SystemInfo | null

@@ -4,7 +4,7 @@
  * 根据心情切换表情和动画
  */
 import { computed } from 'vue'
-import type { PetMood } from '../types/system'
+import type { PetMood } from '@/types/system'
 
 const props = defineProps<{ mood: PetMood }>()
 
