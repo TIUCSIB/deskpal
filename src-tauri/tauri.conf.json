@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicktomlin/tauri/tauri-v2/core/tauri-config-schema/schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "table-pet",
   "version": "0.1.0",
   "identifier": "com.table-pet.app",
@@ -12,14 +12,50 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "桌宠",
-        "width": 300,
-        "height": 300,
+        "url": "index.html?window=pet",
+        "width": 200,
+        "height": 220,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "alwaysOnTop": true,
         "resizable": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true
+      },
+      {
+        "label": "chat",
+        "title": "桌宠聊天",
+        "url": "index.html?window=chat",
+        "width": 380,
+        "height": 190,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false
+      },
+      {
+        "label": "info",
+        "title": "桌宠状态",
+        "url": "index.html?window=info",
+        "width": 240,
+        "height": 190,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "focusable": false,
+        "visible": false
       }
     ],
     "security": {
@@ -33,7 +69,6 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
       "icons/icon.ico"
     ]
   }
