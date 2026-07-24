@@ -7,7 +7,7 @@ interface ChatMessage {
 }
 
 /** 根据系统状态和心情生成桌宠回复 */
-function generateReply(
+export function generateReply(
   userText: string,
   info: SystemInfo | null,
   mood: PetMood,

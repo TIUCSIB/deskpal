@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * ChatBubble.vue - 对话气泡
- * 点击桌宠后弹出，支持简单聊天
+ * ChatBubble.vue - 胶囊输入框
+ * 点击桌宠后弹出胶囊输入框，发送后显示回复，无对话历史
  */
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, ref } from 'vue'
 import type { SystemInfo, PetMood } from '@/types/system'
-import { useChat, getGreeting } from '@/composables/useChat'
+import { generateReply } from '@/composables/useChat'
 
 const props = defineProps<{
   info: SystemInfo | null
@@ -14,35 +14,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>()
 
-const { messages, inputText, sendMessage, addSystemMessage } = useChat()
-const messagesRef = ref<HTMLDivElement | null>(null)
+const inputText = ref('')
+const replyText = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
 
-// 首次打开时打招呼
-let hasGreeted = false
-watch(
-  () => props.mood,
-  () => {
-    if (!hasGreeted) {
-      addSystemMessage(getGreeting())
-      hasGreeted = true
-    }
-  },
-  { immediate: true },
-)
+/** 将焦点交给输入框，供窗口显示后调用 */
+function focusInput() {
+  inputRef.value?.focus()
+}
 
-// 自动滚动到底部
-watch(
-  () => messages.value.length,
-  async () => {
-    await nextTick()
-    if (messagesRef.value) {
-      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-    }
-  },
-)
-
+/** 发送消息，回复显示在原位 */
 function handleSend() {
-  sendMessage(props.info, props.mood)
+  const text = inputText.value.trim()
+  if (!text) return
+
+  replyText.value = generateReply(text, props.info, props.mood)
+  inputText.value = ''
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -51,152 +38,128 @@ function handleKeydown(e: KeyboardEvent) {
     handleSend()
   }
 }
+
+/** 关闭时清空状态 */
+function handleClose() {
+  replyText.value = ''
+  inputText.value = ''
+  emit('close')
+}
+
+/** 自动聚焦输入框 */
+nextTick(focusInput)
+
+defineExpose({ focusInput })
 </script>
 
 <template>
   <div class="chat-bubble">
-    <div class="chat-bubble__header">
-      <span>💬 聊天</span>
-      <button class="chat-bubble__close" @click="emit('close')">✕</button>
+    <!-- 回复内容（有回复时显示） -->
+    <div v-if="replyText" class="chat-bubble__reply">
+      {{ replyText }}
     </div>
 
-    <div class="chat-bubble__messages" ref="messagesRef">
-      <div
-        v-for="(msg, i) in messages"
-        :key="i"
-        class="chat-bubble__msg"
-        :class="msg.isUser ? 'chat-bubble__msg--user' : 'chat-bubble__msg--pet'"
-      >
-        {{ msg.text }}
-      </div>
-    </div>
-
+    <!-- 胶囊输入框 -->
     <div class="chat-bubble__input-area">
       <input
+        ref="inputRef"
         v-model="inputText"
         class="chat-bubble__input"
         placeholder="说点什么..."
         @keydown="handleKeydown"
       />
       <button class="chat-bubble__send" @click="handleSend">➤</button>
+      <button class="chat-bubble__close" @click="handleClose">✕</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .chat-bubble {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 8px;
-  width: 260px;
-  background: rgba(30, 30, 30, 0.95);
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  width: 100%;
+  min-width: 200px;
+  max-width: 360px;
   animation: slide-up 0.2s ease-out;
-  overflow: hidden;
+  z-index: 9999;
+  pointer-events: auto;
+  isolation: isolate;
 }
 
-.chat-bubble__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.chat-bubble__close {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-}
-.chat-bubble__close:hover {
-  color: #fff;
-}
-
-.chat-bubble__messages {
-  height: 180px;
-  overflow-y: auto;
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.chat-bubble__messages::-webkit-scrollbar {
-  width: 4px;
-}
-.chat-bubble__messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-}
-
-.chat-bubble__msg {
-  max-width: 80%;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.4;
+/* 回复气泡 */
+.chat-bubble__reply {
+  background: rgba(30, 30, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px 14px 14px 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 6px;
   word-break: break-word;
 }
-.chat-bubble__msg--user {
-  align-self: flex-end;
-  background: #1976d2;
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-.chat-bubble__msg--pet {
-  align-self: flex-start;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-  border-bottom-left-radius: 4px;
-}
 
+/* 胶囊输入区域 */
 .chat-bubble__input-area {
   display: flex;
-  padding: 8px;
-  gap: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  gap: 4px;
+  background: rgba(30, 30, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 4px 4px 4px 14px;
+  backdrop-filter: blur(10px);
 }
+
 .chat-bubble__input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
+  background: none;
+  border: none;
+  font-size: 13px;
   color: #fff;
   outline: none;
+  min-width: 0;
 }
+
 .chat-bubble__input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
-.chat-bubble__input:focus {
-  border-color: rgba(25, 118, 210, 0.5);
-}
+
 .chat-bubble__send {
   background: #1976d2;
   border: none;
-  border-radius: 8px;
+  border-radius: 50%;
   color: #fff;
-  width: 32px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+
 .chat-bubble__send:hover {
   background: #1565c0;
 }
 
+.chat-bubble__close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.chat-bubble__close:hover {
+  color: #fff;
+}
+
 @keyframes slide-up {
-  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

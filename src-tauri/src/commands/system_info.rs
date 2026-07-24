@@ -26,8 +26,8 @@ pub fn get_system_info() -> SystemInfo {
     sys.refresh_memory();
 
     // CPU 使用率：所有核心的平均值
-    let cpu_usage: f32 = sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>()
-        / sys.cpus().len() as f32;
+    let cpu_usage: f32 =
+        sys.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32;
 
     // 内存信息
     let memory_total_mb = sys.total_memory() / 1024 / 1024;

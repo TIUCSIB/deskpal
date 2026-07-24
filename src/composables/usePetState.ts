@@ -7,8 +7,6 @@ import type { SystemInfo, PetMood } from '@/types/system'
  */
 export function usePetState() {
   const mood = ref<PetMood>('normal')
-  const isInfoPanelVisible = ref(false)
-  const isChatVisible = ref(false)
 
   /** 根据系统信息更新心情 */
   function updateMood(info: SystemInfo | null) {
@@ -37,20 +35,5 @@ export function usePetState() {
     mood.value = 'normal'
   }
 
-  function toggleInfoPanel() {
-    isInfoPanelVisible.value = !isInfoPanelVisible.value
-  }
-
-  function toggleChat() {
-    isChatVisible.value = !isChatVisible.value
-  }
-
-  return {
-    mood,
-    isInfoPanelVisible,
-    isChatVisible,
-    updateMood,
-    toggleInfoPanel,
-    toggleChat,
-  }
+  return { mood, updateMood }
 }

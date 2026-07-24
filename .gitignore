@@ -31,3 +31,7 @@ npm-debug.log*
 # Tauri
 src-tauri/WixTools/
 src-tauri/BundledArtifacts/
+src-tauri/gen/
+
+# Local agent workspace
+.zcode/

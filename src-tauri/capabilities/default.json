@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
+  "description": "Shared capability for the desktop pet windows",
+  "windows": ["main", "chat", "info"],
   "permissions": [
     "core:default",
     "opener:default"

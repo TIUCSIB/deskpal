@@ -25,7 +25,7 @@ function barColor(usage: number): string {
 </script>
 
 <template>
-  <div class="info-panel" v-if="info">
+  <div v-if="info" class="info-panel">
     <div class="info-panel__row">
       <span class="info-panel__icon">🖥️</span>
       <span class="info-panel__label">CPU</span>
@@ -72,19 +72,17 @@ function barColor(usage: number): string {
 
 <style scoped>
 .info-panel {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 8px;
+  position: relative;
+  width: 100%;
+  margin: 0;
   background: rgba(30, 30, 30, 0.92);
   border-radius: 12px;
   padding: 10px 14px;
   min-width: 200px;
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   animation: slide-up 0.2s ease-out;
+  z-index: 999;
 }
 
 .info-panel__row {
@@ -128,7 +126,7 @@ function barColor(usage: number): string {
 .info-panel__value {
   font-size: 11px;
   color: #fff;
-  width: 42px;
+  width: 50px;
   text-align: right;
   font-family: 'Consolas', 'Courier New', monospace;
 }
@@ -138,7 +136,7 @@ function barColor(usage: number): string {
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
