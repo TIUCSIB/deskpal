@@ -3,15 +3,26 @@
  * Pet.vue - 桌宠角色（精灵表动画）
  * 使用像素命中确保只有角色非透明区域响应交互。
  */
+import { watch } from 'vue'
+import type { PetMood } from '@/types/system'
 import { useSpriteAnimation } from '@/composables/useSpriteAnimation'
 import { usePixelHitTest } from '@/composables/usePixelHitTest'
 import spritesheetUrl from '@/assets/pet/spritesheet.webp'
 
+const props = withDefaults(
+  defineProps<{
+    mood: PetMood
+    sizeLocked?: boolean
+  }>(),
+  { sizeLocked: false },
+)
+
 const emit = defineEmits<{
   press: [event: MouseEvent]
   activate: [event: MouseEvent]
-  openMenu: [event: MouseEvent]
   hoverChange: [hovering: boolean]
+  scaleChange: [scale: number]
+  restoreDefaultSize: []
 }>()
 
 const {
@@ -20,7 +31,9 @@ const {
   frameWidth,
   frameHeight,
   sizeScale,
+  setMoodPool,
   setSizeScale,
+  playNamedAnimation,
 } = useSpriteAnimation()
 
 const { hitTest } = usePixelHitTest(
@@ -29,6 +42,14 @@ const { hitTest } = usePixelHitTest(
   backgroundSize,
 )
 let hoveringPetPixel = false
+
+watch(
+  () => props.mood,
+  (mood) => {
+    setMoodPool(mood)
+  },
+  { immediate: true },
+)
 
 /** 获取鼠标相对于精灵容器的坐标 */
 function getRelativePosition(event: MouseEvent): { x: number; y: number } {
@@ -47,12 +68,17 @@ function handleMouseDown(event: MouseEvent) {
 }
 
 function handleClick(event: MouseEvent) {
-  if (event.button === 0 && isPetPixel(event)) emit('activate', event)
+  if (event.button !== 0 || !isPetPixel(event)) return
+  emit('activate', event)
+}
+
+function handleDoubleClick(event: MouseEvent) {
+  if (props.sizeLocked || event.button !== 0 || !isPetPixel(event)) return
+  emit('restoreDefaultSize')
 }
 
 function handleContextMenu(event: MouseEvent) {
   event.preventDefault()
-  if (isPetPixel(event)) emit('openMenu', event)
 }
 
 function handleMouseMove(event: MouseEvent) {
@@ -70,14 +96,17 @@ function handleMouseLeave() {
 
 /** 非透明像素上的滚轮缩放 */
 function handleWheel(event: WheelEvent) {
-  if (!isPetPixel(event)) return
+  if (props.sizeLocked || !isPetPixel(event)) return
+  if (Math.abs(event.deltaY) < 8) return
   event.preventDefault()
   const delta = event.deltaY > 0 ? -0.1 : 0.1
-  setSizeScale(sizeScale.value + delta)
+  const nextScale = sizeScale.value + delta
+  setSizeScale(nextScale)
+  emit('scaleChange', nextScale)
 }
 
-/** 暴露给主窗口的缩放控制和尺寸信息 */
-defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight })
+/** 暴露给主窗口的缩放控制、尺寸信息与动画控制 */
+defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight, playNamedAnimation })
 </script>
 
 <template>
@@ -87,6 +116,7 @@ defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight })
     @wheel="handleWheel"
     @mousedown="handleMouseDown"
     @click="handleClick"
+    @dblclick="handleDoubleClick"
     @contextmenu="handleContextMenu"
     @mousemove="handleMouseMove"
     @mouseleave="handleMouseLeave"

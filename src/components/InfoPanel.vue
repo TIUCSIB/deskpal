@@ -1,142 +1,216 @@
 <script setup lang="ts">
-/**
- * InfoPanel.vue - 系统信息面板
- * 显示 CPU / 内存 / 磁盘使用率和运行时间
- */
+/** InfoPanel.vue - 白色实时系统信息面板 */
 import { computed } from 'vue'
 import type { SystemInfo } from '@/types/system'
 
-const props = defineProps<{ info: SystemInfo | null }>()
+const props = withDefaults(
+  defineProps<{
+    info: SystemInfo | null
+    compact?: boolean
+  }>(),
+  { compact: false },
+)
 
-/** 格式化运行时间 */
 const uptimeText = computed(() => {
   if (!props.info) return '--'
-  const h = Math.floor(props.info.uptime_secs / 3600)
-  const m = Math.floor((props.info.uptime_secs % 3600) / 60)
-  return `${h}h ${m}m`
+  const hours = Math.floor(props.info.uptime_secs / 3600)
+  const minutes = Math.floor((props.info.uptime_secs % 3600) / 60)
+  const seconds = props.info.uptime_secs % 60
+  return `${hours}h ${minutes}m ${seconds}s`
 })
 
-/** 进度条颜色 */
+const networkText = computed(() => {
+  if (!props.info) return '--'
+  return `↓ ${props.info.network_down_kbps.toFixed(1)} / ↑ ${props.info.network_up_kbps.toFixed(1)} KB/s`
+})
+
 function barColor(usage: number): string {
-  if (usage > 85) return '#e53935'
-  if (usage > 60) return '#fb8c00'
-  return '#43a047'
+  if (usage > 85) return '#ff3b30'
+  if (usage > 60) return '#ff9500'
+  return '#34c759'
+}
+
+function safeUsage(usage: number): number {
+  return Math.max(0, Math.min(100, usage))
 }
 </script>
 
 <template>
-  <div v-if="info" class="info-panel">
-    <div class="info-panel__row">
-      <span class="info-panel__icon">🖥️</span>
-      <span class="info-panel__label">CPU</span>
-      <div class="info-panel__bar">
-        <div
-          class="info-panel__fill"
-          :style="{ width: info.cpu_usage + '%', background: barColor(info.cpu_usage) }"
-        ></div>
+  <section class="info-panel" :class="{ 'info-panel--compact': compact }" aria-label="实时系统状态">
+    <template v-if="info">
+      <div class="info-panel__row">
+        <span class="info-panel__label">CPU</span>
+        <div class="info-panel__bar">
+          <i
+            class="info-panel__fill"
+            :style="{
+              width: safeUsage(info.cpu_usage) + '%',
+              backgroundColor: barColor(info.cpu_usage),
+            }"
+          ></i>
+        </div>
+        <span class="info-panel__value">{{ info.cpu_usage.toFixed(1) }}%</span>
       </div>
-      <span class="info-panel__value">{{ info.cpu_usage.toFixed(1) }}%</span>
-    </div>
 
-    <div class="info-panel__row">
-      <span class="info-panel__icon">🧠</span>
-      <span class="info-panel__label">MEM</span>
-      <div class="info-panel__bar">
-        <div
-          class="info-panel__fill"
-          :style="{ width: info.memory_usage + '%', background: barColor(info.memory_usage) }"
-        ></div>
+      <div class="info-panel__row">
+        <span class="info-panel__label">内存</span>
+        <div class="info-panel__bar">
+          <i
+            class="info-panel__fill"
+            :style="{
+              width: safeUsage(info.memory_usage) + '%',
+              backgroundColor: barColor(info.memory_usage),
+            }"
+          ></i>
+        </div>
+        <span class="info-panel__value">{{ info.memory_usage.toFixed(1) }}%</span>
       </div>
-      <span class="info-panel__value">{{ info.memory_usage.toFixed(1) }}%</span>
-    </div>
 
-    <div class="info-panel__row">
-      <span class="info-panel__icon">💾</span>
-      <span class="info-panel__label">DISK</span>
-      <div class="info-panel__bar">
-        <div
-          class="info-panel__fill"
-          :style="{ width: info.disk_usage + '%', background: barColor(info.disk_usage) }"
-        ></div>
+      <div class="info-panel__row">
+        <span class="info-panel__label">存储</span>
+        <div class="info-panel__bar">
+          <i
+            class="info-panel__fill"
+            :style="{
+              width: safeUsage(info.disk_usage) + '%',
+              backgroundColor: barColor(info.disk_usage),
+            }"
+          ></i>
+        </div>
+        <span class="info-panel__value">{{ info.disk_usage.toFixed(1) }}%</span>
       </div>
-      <span class="info-panel__value">{{ info.disk_usage.toFixed(1) }}%</span>
-    </div>
 
-    <div class="info-panel__row info-panel__row--uptime">
-      <span class="info-panel__icon">⏱️</span>
-      <span class="info-panel__label">运行</span>
-      <span class="info-panel__value info-panel__value--wide">{{ uptimeText }}</span>
-    </div>
-  </div>
+      <div class="info-panel__meta">
+        <div class="info-panel__meta-item">
+          <span class="info-panel__meta-label">网络</span>
+          <strong class="info-panel__meta-value">{{ networkText }}</strong>
+        </div>
+      </div>
+
+      <div class="info-panel__footer">
+        <span>运行时间</span>
+        <strong>{{ uptimeText }}</strong>
+      </div>
+    </template>
+
+    <div v-else class="info-panel__loading">正在读取系统状态…</div>
+  </section>
 </template>
 
 <style scoped>
 .info-panel {
-  position: relative;
-  width: 100%;
-  margin: 0;
-  background: rgba(30, 30, 30, 0.92);
-  border-radius: 12px;
-  padding: 10px 14px;
-  min-width: 200px;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  animation: slide-up 0.2s ease-out;
-  z-index: 999;
+  box-sizing: border-box;
+  width: 228px;
+  min-height: 128px;
+  padding: 10px 12px;
+  color: #1c1c1e;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(60, 60, 67, 0.16);
+  border-radius: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-panel--compact {
+  padding: 9px 11px;
 }
 
 .info-panel__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 45px;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.info-panel__row:last-child {
-  margin-bottom: 0;
-}
-.info-panel__row--uptime {
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 7px;
+  min-height: 20px;
 }
 
-.info-panel__icon {
-  font-size: 12px;
-  width: 18px;
-  text-align: center;
+.info-panel__row + .info-panel__row {
+  margin-top: 4px;
 }
-.info-panel__label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  width: 32px;
-  font-family: 'Consolas', 'Courier New', monospace;
-}
-.info-panel__bar {
-  flex: 1;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.info-panel__fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease, background 0.5s ease;
-}
+
+.info-panel__label,
 .info-panel__value {
   font-size: 11px;
-  color: #fff;
-  width: 50px;
-  text-align: right;
-  font-family: 'Consolas', 'Courier New', monospace;
-}
-.info-panel__value--wide {
-  flex: 1;
-  text-align: right;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+.info-panel__label {
+  color: #636366;
+}
+
+.info-panel__value {
+  color: #1c1c1e;
+  text-align: right;
+  font-weight: 600;
+}
+
+.info-panel__bar {
+  height: 7px;
+  overflow: hidden;
+  background: #e5e5ea;
+  border-radius: 4px;
+}
+
+.info-panel__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 240ms ease, background-color 240ms ease;
+}
+
+.info-panel__meta {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.info-panel__meta-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.info-panel__meta-label,
+.info-panel__meta-value {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.info-panel__meta-label {
+  color: #8e8e93;
+}
+
+.info-panel__meta-value {
+  color: #3a3a3c;
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.info-panel__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  padding-top: 7px;
+  color: #8e8e93;
+  border-top: 1px solid #e5e5ea;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.info-panel__footer strong {
+  color: #3a3a3c;
+  font-weight: 600;
+}
+
+.info-panel__loading {
+  display: grid;
+  min-height: 90px;
+  place-items: center;
+  color: #8e8e93;
+  font-size: 11px;
 }
 </style>

@@ -5,6 +5,8 @@ export interface SystemInfo {
   memory_used_mb: number
   memory_total_mb: number
   disk_usage: number
+  network_down_kbps: number
+  network_up_kbps: number
   uptime_secs: number
 }
 

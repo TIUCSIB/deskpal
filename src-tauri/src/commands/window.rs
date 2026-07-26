@@ -1,10 +1,15 @@
-use tauri::{AppHandle, WebviewWindow};
+use tauri::AppHandle;
 
-use crate::{menu, windowing};
+use crate::windowing;
 
 #[tauri::command]
 pub fn resize_main_window(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
     windowing::resize_main_window(&app, width, height)
+}
+
+#[tauri::command]
+pub fn resize_info_window(app: AppHandle, scale: f64) -> Result<(), String> {
+    windowing::resize_info_window(&app, scale)
 }
 
 #[tauri::command]
@@ -18,17 +23,11 @@ pub fn hide_chat_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn set_info_window_visible(app: AppHandle, visible: bool) -> Result<(), String> {
-    windowing::set_info_window_visible(&app, visible)
+pub fn hide_settings_window(app: AppHandle) -> Result<(), String> {
+    windowing::hide_settings_window(&app)
 }
 
 #[tauri::command]
-pub fn show_context_menu(
-    app: AppHandle,
-    window: WebviewWindow,
-    x: f64,
-    y: f64,
-    scale: f64,
-) -> Result<(), String> {
-    menu::show_context_menu(&app, &window, x, y, scale)
+pub fn set_info_window_visible(app: AppHandle, visible: bool) -> Result<(), String> {
+    windowing::request_info_window_visibility(&app, visible)
 }

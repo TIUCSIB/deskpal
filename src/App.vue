@@ -4,11 +4,12 @@ import { computed } from 'vue'
 import ChatWindow from '@/windows/ChatWindow.vue'
 import InfoWindow from '@/windows/InfoWindow.vue'
 import PetWindow from '@/windows/PetWindow.vue'
+import SettingsWindow from '@/windows/SettingsWindow.vue'
 import type { WindowRole } from '@/types/window'
 
 const windowRole = computed<WindowRole>(() => {
   const role = new URLSearchParams(window.location.search).get('window')
-  if (role === 'chat' || role === 'info') return role
+  if (role === 'chat' || role === 'info' || role === 'settings') return role
   return 'pet'
 })
 </script>
@@ -16,5 +17,6 @@ const windowRole = computed<WindowRole>(() => {
 <template>
   <ChatWindow v-if="windowRole === 'chat'" />
   <InfoWindow v-else-if="windowRole === 'info'" />
+  <SettingsWindow v-else-if="windowRole === 'settings'" />
   <PetWindow v-else />
 </template>
