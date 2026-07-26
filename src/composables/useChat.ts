@@ -14,7 +14,6 @@ export function generateReply(
 ): string {
   const text = userText.trim().toLowerCase()
 
-  // —— 关键词匹配 ——
   if (text.includes('内存') || text.includes('memory')) {
     if (!info) return '我还没拿到内存数据呢...'
     return `现在内存用了 ${info.memory_usage.toFixed(1)}%（${info.memory_used_mb}/${info.memory_total_mb} MB）`
@@ -28,6 +27,11 @@ export function generateReply(
   if (text.includes('磁盘') || text.includes('disk')) {
     if (!info) return '磁盘数据还没到...'
     return `磁盘已经用了 ${info.disk_usage.toFixed(1)}% 啦`
+  }
+
+  if (text.includes('网络') || text.includes('网速') || text.includes('上传') || text.includes('下载')) {
+    if (!info) return '网络数据还没到...'
+    return `当前下载 ${info.network_down_kbps.toFixed(1)} KB/s，上传 ${info.network_up_kbps.toFixed(1)} KB/s`
   }
 
   if (text.includes('运行') || text.includes('uptime') || text.includes('多久')) {
@@ -45,7 +49,6 @@ export function generateReply(
     return '你辛苦啦～记得适当休息哦！'
   }
 
-  // —— 根据心情生成闲聊 ——
   if (mood === 'warning' && info) {
     if (info.cpu_usage > 80) {
       return `CPU 负载有点高（${info.cpu_usage.toFixed(1)}%），看看是不是有程序卡住了？`
@@ -62,7 +65,6 @@ export function generateReply(
     return sleepyReplies[Math.floor(Math.random() * sleepyReplies.length)]
   }
 
-  // 默认闲聊
   const defaultReplies = [
     '我很好，谢谢关心！',
     '今天心情不错～',
@@ -92,17 +94,11 @@ export function useChat() {
     const text = inputText.value.trim()
     if (!text) return
 
-    // 添加用户消息
     messages.value.push({ text, isUser: true })
-
-    // 生成回复
     const reply = generateReply(text, info, mood)
     messages.value.push({ text: reply, isUser: false })
-
-    // 清空输入
     inputText.value = ''
 
-    // 限制消息数量，保留最近 20 条
     if (messages.value.length > 20) {
       messages.value = messages.value.slice(-20)
     }

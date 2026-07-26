@@ -2,17 +2,23 @@
  * usePetInteraction.ts - 桌宠拖拽与点击判定
  * 使用统一阈值区分点击和原生窗口拖拽。
  */
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const DRAG_THRESHOLD = 5
+const DRAG_ANIMATION_HOLD_MS = 1100
+
+export type DragDirection = 'left' | 'right'
 
 export function usePetInteraction() {
+  const isDragging = ref(false)
+  const dragDirection = ref<DragDirection | null>(null)
   let dragStartX = 0
   let dragStartY = 0
   let mouseDownOnPet = false
   let dragActive = false
   let suppressNextClick = false
+  let dragReleaseTimer: ReturnType<typeof setTimeout> | null = null
 
   function exceedsThreshold(event: MouseEvent): boolean {
     const dx = Math.abs(event.screenX - dragStartX)
@@ -39,7 +45,14 @@ export function usePetInteraction() {
     if (event.buttons !== 1 || !mouseDownOnPet || dragActive) return
     if (!exceedsThreshold(event)) return
 
+    if (dragReleaseTimer) {
+      clearTimeout(dragReleaseTimer)
+      dragReleaseTimer = null
+    }
+
     dragActive = true
+    dragDirection.value = event.screenX >= dragStartX ? 'right' : 'left'
+    isDragging.value = true
     suppressNextClick = true
     try {
       await getCurrentWindow().startDragging()
@@ -48,9 +61,12 @@ export function usePetInteraction() {
     } finally {
       dragActive = false
       mouseDownOnPet = false
-      window.setTimeout(() => {
+      dragReleaseTimer = setTimeout(() => {
+        isDragging.value = false
+        dragDirection.value = null
         suppressNextClick = false
-      }, 250)
+        dragReleaseTimer = null
+      }, DRAG_ANIMATION_HOLD_MS)
     }
   }
 
@@ -68,5 +84,5 @@ export function usePetInteraction() {
     window.removeEventListener('mouseup', handleWindowMouseUp)
   })
 
-  return { handlePetPress, shouldActivate }
+  return { handlePetPress, shouldActivate, isDragging, dragDirection }
 }

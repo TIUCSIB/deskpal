@@ -1,9 +1,13 @@
 /**
  * useSpriteAnimation.ts - 精灵表动画 composable
- * 驱动帧循环，随机切换动画，支持缩放
+ * 驱动帧循环、心情动画池和交互动画。
  */
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import type { PetSpritesheet, PetAnimation } from '@/types/pet'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { PetMood } from '@/types/system'
+import type { PetAnimation, PetSpritesheet } from '@/types/pet'
+
+export const MIN_PET_SCALE = 0.45
+export const MAX_PET_SCALE = 1.2
 
 /** 咕嘎精灵表配置 */
 const GUGA_SPRITESHEET: PetSpritesheet = {
@@ -29,12 +33,15 @@ const GUGA_SPRITESHEET: PetSpritesheet = {
   ],
 }
 
-/** 随机选取一个与当前不同的动画 */
-function pickRandomAnimation(current: PetAnimation): PetAnimation {
-  const others = GUGA_SPRITESHEET.animations.filter(
-    (a) => a.name !== current.name,
-  )
-  return others[Math.floor(Math.random() * others.length)]
+const MOOD_POOLS: Record<PetMood, string[]> = {
+  happy: ['Idle', 'Review', 'RunRight', 'RunLeft', 'Waiting'],
+  normal: ['Idle', 'Review', 'RunRight', 'RunLeft', 'Waiting', 'Running'],
+  sleepy: ['Waiting', 'Idle', 'Review'],
+  warning: ['Failed', 'Running', 'Review', 'Idle'],
+}
+
+function findAnimation(name: string): PetAnimation | undefined {
+  return GUGA_SPRITESHEET.animations.find((animation) => animation.name === name)
 }
 
 /** 根据动画名和帧索引计算 backgroundPosition */
@@ -56,21 +63,43 @@ export function useSpriteAnimation() {
   const frameIndex = ref(0)
   const backgroundPosition = ref('0px 0px')
   const sizeScale = ref(1)
+  const animationPool = ref<string[]>([...MOOD_POOLS.normal])
 
   let animFrameId = 0
   let lastFrameTime = 0
 
   /** 切换动画，从第 0 帧开始播放 */
-  function switchAnimation(anim: PetAnimation) {
-    currentAnimation.value = anim
+  function switchAnimation(animation: PetAnimation) {
+    currentAnimation.value = animation
     frameIndex.value = 0
     lastFrameTime = 0
     backgroundPosition.value = getBackgroundPosition(
       GUGA_SPRITESHEET,
-      anim,
+      animation,
       0,
       sizeScale.value,
     )
+  }
+
+  /** 按名称播放一次指定动画 */
+  function playNamedAnimation(name: string) {
+    const animation = findAnimation(name)
+    if (animation) switchAnimation(animation)
+  }
+
+  /** 根据心情切换常驻动画池 */
+  function setMoodPool(mood: PetMood) {
+    animationPool.value = [...MOOD_POOLS[mood]]
+    if (!animationPool.value.includes(currentAnimation.value.name)) {
+      const next = findAnimation(animationPool.value[0])
+      if (next) switchAnimation(next)
+    }
+  }
+
+  /** 设置缩放比例 */
+  function setSizeScale(scale: number) {
+    const safeScale = Number.isFinite(scale) ? scale : 1
+    sizeScale.value = Math.max(MIN_PET_SCALE, Math.min(MAX_PET_SCALE, safeScale))
   }
 
   /** 帧循环 */
@@ -79,28 +108,16 @@ export function useSpriteAnimation() {
 
     if (timestamp - lastFrameTime >= interval) {
       lastFrameTime = timestamp
-      frameIndex.value =
-        (frameIndex.value + 1) % currentAnimation.value.frameCount
-
-      // 动画播放完毕，随机切换下一个
-      if (frameIndex.value === 0) {
-        switchAnimation(pickRandomAnimation(currentAnimation.value))
-      } else {
-        backgroundPosition.value = getBackgroundPosition(
-          GUGA_SPRITESHEET,
-          currentAnimation.value,
-          frameIndex.value,
-          sizeScale.value,
-        )
-      }
+      frameIndex.value = (frameIndex.value + 1) % currentAnimation.value.frameCount
+      backgroundPosition.value = getBackgroundPosition(
+        GUGA_SPRITESHEET,
+        currentAnimation.value,
+        frameIndex.value,
+        sizeScale.value,
+      )
     }
 
     animFrameId = requestAnimationFrame(tick)
-  }
-
-  /** 设置缩放比例 */
-  function setSizeScale(scale: number) {
-    sizeScale.value = Math.max(0.3, Math.min(3, scale))
   }
 
   /** 缩放变化时同步背景位置 */
@@ -137,6 +154,7 @@ export function useSpriteAnimation() {
       : GUGA_SPRITESHEET.frameWidth
     return w * sizeScale.value
   })
+
   const scaledFrameHeight = computed(() => {
     const crop = GUGA_SPRITESHEET.crop
     const h = crop
@@ -146,16 +164,13 @@ export function useSpriteAnimation() {
   })
 
   return {
-    /** 当前帧的 background-position 值 */
     backgroundPosition,
-    /** 缩放后的精灵表背景尺寸 */
     backgroundSize,
-    /** 缩放后的帧容器尺寸 */
     frameWidth: scaledFrameWidth,
     frameHeight: scaledFrameHeight,
-    /** 缩放比例 */
     sizeScale,
-    /** 设置缩放比例（0.3 ~ 3.0） */
+    setMoodPool,
     setSizeScale,
+    playNamedAnimation,
   }
 }

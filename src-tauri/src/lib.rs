@@ -1,30 +1,107 @@
 mod commands;
-mod menu;
+mod settings;
+mod tray;
 mod windowing;
 
-use commands::{system_info, window};
-use tauri::{Manager, WindowEvent};
+use std::str::FromStr;
+
+use commands::{settings as settings_commands, system_info, window};
+use tauri::{AppHandle, Manager, WindowEvent};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
+use tauri_plugin_global_shortcut::{
+    Builder as GlobalShortcutBuilder, GlobalShortcutExt, Shortcut, ShortcutState,
+};
+
+pub(crate) fn parse_chat_shortcut(shortcut: &str) -> Result<Shortcut, String> {
+    Shortcut::from_str(shortcut.trim()).map_err(|error| format!("快捷键格式无效: {error}"))
+}
+
+pub(crate) fn sync_chat_shortcut(
+    app: &AppHandle,
+    shortcut: &str,
+    enabled: bool,
+) -> Result<bool, String> {
+    let manager = app.global_shortcut();
+    manager.unregister_all().map_err(|error| error.to_string())?;
+
+    if !enabled {
+        return Ok(false);
+    }
+
+    let shortcut = parse_chat_shortcut(shortcut)?;
+    match manager.on_shortcut(shortcut, |app, _shortcut, event| {
+        if event.state != ShortcutState::Pressed {
+            return;
+        }
+        let _ = windowing::toggle_chat_window(app);
+    }) {
+        Ok(()) => Ok(true),
+        Err(error) => {
+            eprintln!("无法注册聊天快捷键 {}: {error}", shortcut.to_string());
+            Ok(false)
+        }
+    }
+}
+
+pub(crate) fn sync_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let manager = app.autolaunch();
+    let current = manager.is_enabled().map_err(|error| error.to_string())?;
+    if current == enabled {
+        return Ok(());
+    }
+    if enabled {
+        manager.enable().map_err(|error| error.to_string())
+    } else {
+        manager.disable().map_err(|error| error.to_string())
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(system_info::SystemMonitor::new())
+        .manage(windowing::OverlayState::default())
+        .plugin(GlobalShortcutBuilder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             system_info::get_system_info,
             window::resize_main_window,
+            window::resize_info_window,
             window::toggle_chat_window,
             window::hide_chat_window,
+            window::hide_settings_window,
             window::set_info_window_visible,
-            window::show_context_menu,
+            settings_commands::load_app_settings,
+            settings_commands::save_pet_scale,
+            settings_commands::save_main_window_position,
+            settings_commands::save_settings_window_bounds,
+            settings_commands::set_info_mode,
+            settings_commands::set_size_locked,
+            settings_commands::set_shortcut_enabled,
+            settings_commands::set_chat_shortcut,
+            settings_commands::set_launch_at_startup,
+            settings_commands::set_main_window_always_on_top,
+            settings_commands::set_main_window_show_in_taskbar,
+            settings_commands::reset_main_window_position,
+            settings_commands::reset_settings_window_bounds,
+            settings_commands::reset_all_settings,
         ])
-        .on_menu_event(menu::handle_menu_event)
         .setup(|app| {
+            let settings_state = settings::SettingsState::load(&app.handle())?;
+            let mut initial_settings = settings_state.get()?;
+            app.manage(settings_state);
+
             #[cfg(target_os = "windows")]
             {
                 for label in [
                     windowing::MAIN_WINDOW,
                     windowing::CHAT_WINDOW,
                     windowing::INFO_WINDOW,
+                    windowing::SETTINGS_WINDOW,
                 ] {
                     if let Some(window) = app.get_webview_window(label) {
                         if let Err(error) =
@@ -42,6 +119,32 @@ pub fn run() {
                 }
             }
 
+            if let Err(error) = sync_autostart(&app.handle(), initial_settings.launch_at_startup) {
+                eprintln!("无法同步开机自启设置: {error}");
+                if let Some(settings) = app.try_state::<settings::SettingsState>() {
+                    initial_settings = settings.set_launch_at_startup(false)?;
+                }
+            }
+
+            windowing::apply_main_window_settings(&app.handle(), &initial_settings)?;
+            if !sync_chat_shortcut(
+                &app.handle(),
+                &initial_settings.chat_shortcut,
+                initial_settings.shortcut_enabled,
+            )? && initial_settings.shortcut_enabled
+            {
+                if let Some(settings) = app.try_state::<settings::SettingsState>() {
+                    initial_settings = settings.set_shortcut_enabled(false)?;
+                }
+            }
+
+            tray::create_tray(&app.handle())?;
+            windowing::restore_main_window_position(
+                &app.handle(),
+                initial_settings.main_position.map(Into::into),
+            )?;
+            windowing::sync_info_window_visibility(&app.handle())?;
+
             if let Some(main) = app.get_webview_window(windowing::MAIN_WINDOW) {
                 let app_handle = app.handle().clone();
                 main.on_window_event(move |event| {
@@ -50,6 +153,14 @@ pub fn run() {
                         WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. }
                     ) {
                         windowing::reposition_visible_overlays(&app_handle);
+                        if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
+                            if let Some(window) = app_handle.get_webview_window(windowing::MAIN_WINDOW)
+                            {
+                                if let Ok(position) = window.outer_position() {
+                                    let _ = settings.save_main_position_throttled(position.into());
+                                }
+                            }
+                        }
                     }
                 });
             }

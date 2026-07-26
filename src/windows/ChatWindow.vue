@@ -12,23 +12,29 @@ const { context } = usePetContextReceiver()
 const chatRef = ref<InstanceType<typeof ChatBubble> | null>(null)
 let unlistenFocusInput: UnlistenFn | null = null
 let unlistenWindowFocus: UnlistenFn | null = null
+const BLUR_HIDE_GUARD_MS = 160
 let hasFocusedSinceShow = false
+let lastFocusAt = 0
 
 async function hideChat() {
+  chatRef.value?.resetSession()
   await invoke('hide_chat_window')
 }
 
 onMounted(async () => {
   unlistenFocusInput = await listen(WINDOW_EVENTS.focusChatInput, () => {
     hasFocusedSinceShow = true
+    lastFocusAt = Date.now()
     chatRef.value?.focusInput()
   })
   unlistenWindowFocus = await getCurrentWindow().onFocusChanged(({ payload }) => {
     if (payload) {
       hasFocusedSinceShow = true
+      lastFocusAt = Date.now()
       return
     }
     if (!hasFocusedSinceShow) return
+    if (Date.now() - lastFocusAt < BLUR_HIDE_GUARD_MS) return
     hasFocusedSinceShow = false
     void hideChat()
   })
@@ -46,7 +52,6 @@ onUnmounted(() => {
       ref="chatRef"
       :info="context.info"
       :mood="context.mood"
-      @close="hideChat"
     />
   </main>
 </template>
@@ -58,7 +63,28 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 8px;
+  padding: 0 8px 0;
   background: transparent;
+  opacity: 0;
+  transform: translateY(0) scale(1);
+  transform-origin: bottom center;
+  animation: chat-bubble-pop 260ms cubic-bezier(0.2, 1.3, 0.32, 1) forwards;
+}
+
+@keyframes chat-bubble-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.84);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.035);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 </style>
