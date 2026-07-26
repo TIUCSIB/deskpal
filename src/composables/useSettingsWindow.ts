@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { toast } from 'vue-sonner'
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi'
 import { getCurrentWindow, currentMonitor, primaryMonitor } from '@tauri-apps/api/window'
 import { useAppSettings } from '@/composables/useAppSettings'
@@ -21,7 +22,6 @@ type Unlisten = (() => void) | null
 export function useSettingsWindow() {
   const { settings, ready, loadSettings } = useAppSettings()
   const shortcutDraft = ref(DEFAULT_CHAT_SHORTCUT)
-  const feedbackText = ref('')
   const infoModeOptions: Array<{ label: string; value: InfoMode }> = [
     { label: '自动显示', value: 'auto' },
     { label: '始终显示', value: 'always' },
@@ -49,7 +49,8 @@ export function useSettingsWindow() {
   )
 
   function setFeedback(text: string) {
-    feedbackText.value = text
+    if (!text) return
+    toast(text)
   }
 
   function infoModeLabel(mode: InfoMode) {
@@ -152,31 +153,27 @@ export function useSettingsWindow() {
       return updated
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '设置保存失败'
-      setFeedback(message)
+      toast.error(message)
       throw error
     }
   }
 
-  async function handleInfoModeChange(event: Event) {
-    const mode = (event.target as HTMLSelectElement).value as InfoMode
+  async function handleInfoModeChange(mode: InfoMode) {
     const updated = await invokeSetting('set_info_mode', { mode })
     setFeedback(`信息窗已切换为${infoModeLabel(updated.info_mode)}`)
   }
 
-  async function handleScaleChange(event: Event) {
-    const scale = Number((event.target as HTMLInputElement).value)
+  async function handleScaleChange(scale: number) {
     await invokeSetting('save_pet_scale', { scale })
     setFeedback(`宠物大小已调整为 ${scale.toFixed(2)}`)
   }
 
-  async function handleSizeLockedChange(event: Event) {
-    const locked = (event.target as HTMLInputElement).checked
+  async function handleSizeLockedChange(locked: boolean) {
     await invokeSetting('set_size_locked', { locked })
     setFeedback(locked ? '已锁定宠物大小' : '已允许滚轮调整大小')
   }
 
-  async function handleShortcutEnabledChange(event: Event) {
-    const enabled = (event.target as HTMLInputElement).checked
+  async function handleShortcutEnabledChange(enabled: boolean) {
     const updated = await invokeSetting('set_shortcut_enabled', { enabled })
     if (enabled && !updated.shortcut_enabled) {
       setFeedback('快捷键被占用或注册失败，已自动关闭')
@@ -185,20 +182,17 @@ export function useSettingsWindow() {
     setFeedback(enabled ? '聊天快捷键已开启' : '聊天快捷键已关闭')
   }
 
-  async function handleAlwaysOnTopChange(event: Event) {
-    const enabled = (event.target as HTMLInputElement).checked
+  async function handleAlwaysOnTopChange(enabled: boolean) {
     await invokeSetting('set_main_window_always_on_top', { enabled })
     setFeedback(enabled ? '桌宠窗口已置顶' : '桌宠窗口已取消置顶')
   }
 
-  async function handleTaskbarChange(event: Event) {
-    const enabled = (event.target as HTMLInputElement).checked
+  async function handleTaskbarChange(enabled: boolean) {
     await invokeSetting('set_main_window_show_in_taskbar', { enabled })
     setFeedback(enabled ? '桌宠已显示在任务栏' : '桌宠已从任务栏隐藏')
   }
 
-  async function handleLaunchAtStartupChange(event: Event) {
-    const enabled = (event.target as HTMLInputElement).checked
+  async function handleLaunchAtStartupChange(enabled: boolean) {
     await invokeSetting('set_launch_at_startup', { enabled })
     setFeedback(enabled ? '已开启开机自动启动' : '已关闭开机自动启动')
   }
@@ -219,8 +213,8 @@ export function useSettingsWindow() {
     setFeedback(updated.shortcut_enabled ? '快捷键已更新并立即生效' : '快捷键已保存，启用后生效')
   }
 
-  function handleShortcutDraftInput(event: Event) {
-    shortcutDraft.value = (event.target as HTMLInputElement).value
+  function handleShortcutDraftInput(value: string) {
+    shortcutDraft.value = value
   }
 
   async function restoreDefaultScale() {
@@ -241,8 +235,6 @@ export function useSettingsWindow() {
   }
 
   async function resetAllSettings() {
-    if (!window.confirm('确定要恢复全部默认设置吗？')) return
-
     await withBoundsRestoreLock(async () => {
       await invokeSetting('reset_all_settings')
     })
@@ -277,7 +269,6 @@ export function useSettingsWindow() {
     scaleText,
     shortcutDraft,
     shortcutSummary,
-    feedbackText,
     infoModeOptions,
     closeWindow,
     handleInfoModeChange,
