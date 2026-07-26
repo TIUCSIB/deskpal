@@ -66,18 +66,23 @@ onUnmounted(() => {
   padding: 0 8px 0;
   background: transparent;
   opacity: 0;
-  transform: translateY(8px) scale(0.96);
+  transform: translateY(0) scale(1);
   transform-origin: bottom center;
-  animation: chat-window-in 180ms ease-out forwards;
+  animation: chat-bubble-pop 260ms cubic-bezier(0.2, 1.3, 0.32, 1) forwards;
 }
 
-@keyframes chat-window-in {
-  from {
+@keyframes chat-bubble-pop {
+  0% {
     opacity: 0;
-    transform: translateY(10px) scale(0.96);
+    transform: translateY(14px) scale(0.84);
   }
 
-  to {
+  68% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.035);
+  }
+
+  100% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }

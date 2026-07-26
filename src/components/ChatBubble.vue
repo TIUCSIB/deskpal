@@ -121,10 +121,25 @@ defineExpose({ focusInput, resetSession })
 
 <style scoped>
 .chat-bubble {
+  position: relative;
   width: 232px;
   max-width: 100%;
   color: #1c1c1e;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.14));
   pointer-events: auto;
+}
+
+.chat-bubble::after {
+  position: absolute;
+  right: 34px;
+  bottom: -4px;
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  border-right: 1px solid rgba(60, 60, 67, 0.16);
+  border-bottom: 1px solid rgba(60, 60, 67, 0.16);
+  content: '';
+  transform: rotate(45deg) scale(0.92);
 }
 
 .chat-bubble__surface {
@@ -143,7 +158,7 @@ defineExpose({ focusInput, resetSession })
     padding 180ms ease,
     border-radius 180ms ease,
     opacity 160ms ease;
-  animation: appear 180ms ease-out;
+  animation: appear 240ms cubic-bezier(0.2, 1.25, 0.32, 1);
 }
 
 .chat-bubble__surface--loading {
@@ -253,8 +268,9 @@ defineExpose({ focusInput, resetSession })
 }
 
 @keyframes appear {
-  from { opacity: 0; transform: translateY(5px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: translateY(8px) scale(0.88); }
+  70% { opacity: 1; transform: translateY(-1px) scale(1.025); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes reply-in {
