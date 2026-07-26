@@ -34,41 +34,26 @@ const contentStyle = computed(() => ({
 }
 
 .info-window__content {
-  position: relative;
-  width: 240px;
-  height: 144px;
+  width: 232px;
+  height: 136px;
   display: flex;
   align-items: center;
   justify-content: center;
   transform: translateY(0) scale(var(--info-scale, 1));
-  transform-origin: bottom center;
+  transform-origin: center;
   opacity: 0;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.14));
-  animation: info-bubble-pop 260ms cubic-bezier(0.2, 1.3, 0.32, 1) forwards;
-}
-
-.info-window__content::after {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.97);
-  border-right: 1px solid rgba(60, 60, 67, 0.16);
-  border-bottom: 1px solid rgba(60, 60, 67, 0.16);
-  content: '';
-  transform: translate(-50%, 5px) rotate(45deg) scale(0.92);
+  animation: info-bubble-pop 220ms cubic-bezier(0.2, 1.15, 0.32, 1) forwards;
 }
 
 @keyframes info-bubble-pop {
   0% {
     opacity: 0;
-    transform: translateY(12px) scale(calc(var(--info-scale, 1) * 0.86));
+    transform: translateY(8px) scale(calc(var(--info-scale, 1) * 0.9));
   }
 
-  68% {
+  72% {
     opacity: 1;
-    transform: translateY(-2px) scale(calc(var(--info-scale, 1) * 1.035));
+    transform: translateY(-1px) scale(calc(var(--info-scale, 1) * 1.015));
   }
 
   100% {
