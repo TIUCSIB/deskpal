@@ -35,7 +35,7 @@ export const PET_ROLES: PetRole[] = [
   },
   {
     id: 'monthly-salary-cat',
-    displayName: 'Monthly salary cat（月薪猫）',
+    displayName: '月薪猫',
     description: '一只认真打工、等月薪到账的小猫。',
     kind: 'animal',
     spritesheetUrl: monthlySalaryCatSpritesheetUrl,
@@ -47,7 +47,7 @@ export const PET_ROLES: PetRole[] = [
   },
   {
     id: 'broom-witch',
-    displayName: 'Broom Witch',
+    displayName: '琪琪',
     description: '骑着扫帚的小魔女，适合带一点魔法感的桌面。',
     kind: 'person',
     spritesheetUrl: broomWitchSpritesheetUrl,
