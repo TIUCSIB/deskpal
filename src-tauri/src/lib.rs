@@ -87,7 +87,10 @@ pub fn run() {
             window::hide_reminder_window,
             window::active_reminder_payload,
             window::dismiss_reminder_window,
+            window::complete_reminder_window,
             window::snooze_reminder,
+            window::get_reminder_activity,
+            window::clear_reminder_activity,
             window::pause_reminder_until_tomorrow,
             window::preview_reminder_window,
             window::set_info_window_visible,
@@ -104,6 +107,7 @@ pub fn run() {
             settings_commands::set_launch_at_startup,
             settings_commands::set_main_window_always_on_top,
             settings_commands::set_main_window_show_in_taskbar,
+            settings_commands::set_reminder_quiet_hours,
             settings_commands::create_reminder,
             settings_commands::update_reminder,
             settings_commands::delete_reminder,
@@ -114,8 +118,10 @@ pub fn run() {
         ])
         .setup(|app| {
             let settings_state = settings::SettingsState::load(&app.handle())?;
+            let reminder_history = reminder::ReminderHistoryState::load(&app.handle())?;
             let mut initial_settings = settings_state.get()?;
             app.manage(settings_state);
+            app.manage(reminder_history);
 
             #[cfg(target_os = "windows")]
             {

@@ -1,8 +1,8 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 use crate::{
     menu,
-    reminder::{self, ReminderPayload},
+    reminder::{self, ReminderActivity, ReminderHistoryState, ReminderPayload},
     windowing,
 };
 
@@ -52,8 +52,31 @@ pub fn dismiss_reminder_window(app: AppHandle, reminder_id: String) -> Result<()
 }
 
 #[tauri::command]
+pub fn complete_reminder_window(app: AppHandle, reminder_id: String) -> Result<(), String> {
+    reminder::complete(&app, reminder_id)
+}
+
+#[tauri::command]
 pub fn snooze_reminder(app: AppHandle, reminder_id: String) -> Result<(), String> {
     reminder::snooze(&app, reminder_id)
+}
+
+#[tauri::command]
+pub fn get_reminder_activity(
+    history: tauri::State<'_, ReminderHistoryState>,
+    include_all_events: Option<bool>,
+) -> Result<ReminderActivity, String> {
+    history.activity_with_events(include_all_events.unwrap_or(false))
+}
+
+#[tauri::command]
+pub fn clear_reminder_activity(
+    app: AppHandle,
+    history: tauri::State<'_, ReminderHistoryState>,
+) -> Result<(), String> {
+    history.clear()?;
+    app.emit("pet://reminder-activity-updated", history.activity()?)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import ReminderSettingsSection from '@/components/settings/ReminderSettingsSection.vue'
+import ReminderSettingsTab from '@/components/settings/ReminderSettingsTab.vue'
 import RoleSettingsSection from '@/components/settings/RoleSettingsSection.vue'
 import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
@@ -57,22 +57,7 @@ const {
   resetPosition,
   resetSettingsWindowBounds,
   resetAllSettings,
-  intervalOptions,
-  snoozeOptions,
-  draft,
-  deleteTarget,
-  openCreateEditor,
-  openEditEditor,
-  cancelEditor,
-  updateDraft,
-  saveReminder,
-  setReminderEnabled,
-  previewReminder,
-  requestDelete,
-  cancelDelete,
-  confirmDelete,
-  formatSchedule,
-  formatPause,
+  reminderSettings,
   petRoles,
   selectedRole,
   handlePetRoleChange,
@@ -214,33 +199,7 @@ function handleScaleValue(value: number[] | undefined) {
       </TabsContent>
 
       <TabsContent value="reminder" class="min-h-0 data-[state=inactive]:hidden">
-        <ScrollArea class="h-full">
-          <div class="pr-2">
-            <ReminderSettingsSection
-              :reminders="settings.reminders"
-              :draft="draft"
-              :delete-target="deleteTarget"
-              :interval-options="intervalOptions"
-              :snooze-options="snoozeOptions"
-              :format-schedule="formatSchedule"
-              :format-pause="formatPause"
-              @create="openCreateEditor"
-              @edit="openEditEditor"
-              @cancel="cancelEditor"
-              @save="saveReminder"
-              @update:draft-message="updateDraft('message', $event)"
-              @update:draft-schedule-type="updateDraft('scheduleType', $event)"
-              @update:draft-interval-minutes="updateDraft('intervalMinutes', $event)"
-              @update:draft-time="updateDraft('time', $event)"
-              @update:draft-snooze-minutes="updateDraft('snoozeMinutes', $event)"
-              @update:enabled="setReminderEnabled"
-              @preview="previewReminder"
-              @request-delete="requestDelete"
-              @cancel-delete="cancelDelete"
-              @confirm-delete="confirmDelete"
-            />
-          </div>
-        </ScrollArea>
+        <ReminderSettingsTab :settings="settings" :reminder-settings="reminderSettings" />
       </TabsContent>
 
       <TabsContent value="role" class="min-h-0 data-[state=inactive]:hidden">

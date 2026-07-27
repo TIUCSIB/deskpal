@@ -3,8 +3,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::{
     parse_chat_shortcut, reminder,
     settings::{
-        AppSettings, InfoMode, Reminder, ReminderInput, SavedPosition, SavedWindowBounds,
-        SettingsState,
+        AppSettings, InfoMode, QuietHours, Reminder, ReminderInput, SavedPosition,
+        SavedWindowBounds, SettingsState,
     },
     sync_autostart, sync_chat_shortcut, windowing,
 };
@@ -148,6 +148,15 @@ pub fn set_main_window_show_in_taskbar(
     let updated = settings.set_main_window_show_in_taskbar(enabled)?;
     windowing::apply_main_window_settings(&app, &updated)?;
     finish_update(&app, updated)
+}
+
+#[tauri::command]
+pub fn set_reminder_quiet_hours(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    quiet_hours: QuietHours,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_quiet_hours(quiet_hours)?)
 }
 
 #[tauri::command]

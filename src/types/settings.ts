@@ -3,10 +3,14 @@ import { DEFAULT_PET_ROLE } from '@/config/petRoles'
 import type { PetRoleId } from '@/types/pet'
 
 export type InfoMode = 'auto' | 'always' | 'hidden'
+export type FixedTimeRepeat =
+  | { type: 'daily' }
+  | { type: 'weekdays' }
+  | { type: 'custom_weekdays'; weekdays: number[] }
 
 export type ReminderSchedule =
-  | { type: 'interval', interval_minutes: number }
-  | { type: 'fixed_time', time: string }
+  | { type: 'interval'; interval_minutes: number }
+  | { type: 'fixed_time'; time: string; repeat?: FixedTimeRepeat }
 
 export interface Reminder {
   id: string
@@ -22,6 +26,38 @@ export interface ReminderInput {
   message: string
   schedule: ReminderSchedule
   snooze_minutes: number
+}
+
+export interface QuietHours {
+  enabled: boolean
+  start: string
+  end: string
+}
+
+export interface ReminderActivityStats {
+  todayCompletionRate: number | null
+  currentStreakDays: number
+  frequentlyPostponed: Array<{
+    reminderId: string
+    message: string
+    snoozeCount: number
+  }>
+}
+
+export interface ReminderActivityEvent {
+  id: string
+  reminderId: string
+  message: string
+  scheduledFor: string
+  occurredAt: string
+  kind: string
+  reason?: string
+}
+
+export interface ReminderActivity {
+  stats: ReminderActivityStats
+  events: ReminderActivityEvent[]
+  hasMoreEvents: boolean
 }
 
 export interface SavedPosition {
@@ -49,6 +85,7 @@ export interface AppSettings {
   main_window_show_in_taskbar: boolean
   chat_shortcut: string
   reminders: Reminder[]
+  quiet_hours: QuietHours
 }
 
 export const DEFAULT_PET_SCALE = 0.85
@@ -60,6 +97,11 @@ export const MIN_SETTINGS_WINDOW_HEIGHT = 520
 export const DEFAULT_REMINDER_MESSAGE = '记得喝水，起来活动一下吧'
 export const DEFAULT_REMINDER_INTERVAL_MINUTES = 30
 export const DEFAULT_REMINDER_SNOOZE_MINUTES = 5
+export const DEFAULT_QUIET_HOURS: QuietHours = {
+  enabled: false,
+  start: '23:00',
+  end: '08:00',
+}
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   main_position: null,
@@ -74,4 +116,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   main_window_show_in_taskbar: false,
   chat_shortcut: DEFAULT_CHAT_SHORTCUT,
   reminders: [],
+  quiet_hours: { ...DEFAULT_QUIET_HOURS },
 }

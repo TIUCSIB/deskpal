@@ -24,6 +24,7 @@ const SAVE_BOUNDS_DELAY = 120
 const RESTORE_BOUNDS_LOCK_DELAY = 180
 
 type Unlisten = (() => void) | null
+export type ReminderSettings = ReturnType<typeof useReminderSettings>
 
 /** useSettingsWindow - 设置窗口状态与交互 */
 export function useSettingsWindow() {
@@ -247,7 +248,7 @@ export function useSettingsWindow() {
     resetPosition,
     resetSettingsWindowBounds,
     resetAllSettings,
-    ...reminderSettings,
+    reminderSettings,
     ...roleSettings,
   }
 }

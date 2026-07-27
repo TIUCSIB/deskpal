@@ -27,6 +27,10 @@ export function useReminderWindow() {
     }
   }
 
+  async function completeReminder() {
+    await runAction('complete_reminder_window')
+  }
+
   async function dismissReminder() {
     await runAction('dismiss_reminder_window')
   }
@@ -47,6 +51,7 @@ export function useReminderWindow() {
     message,
     compact,
     snoozeText,
+    completeReminder,
     dismissReminder,
     snoozeReminder,
     pauseUntilTomorrow,
