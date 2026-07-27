@@ -116,9 +116,10 @@ function safeUsage(usage: number): number {
 
 .info-panel__row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 45px;
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   min-height: 20px;
 }
 
@@ -138,9 +139,11 @@ function safeUsage(usage: number): number {
 }
 
 .info-panel__value {
+  min-width: max-content;
   color: #1c1c1e;
   text-align: right;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .info-panel__bar {
@@ -190,8 +193,8 @@ function safeUsage(usage: number): number {
 }
 
 .info-panel__footer {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
   margin-top: 7px;
   padding-top: 7px;
@@ -202,8 +205,13 @@ function safeUsage(usage: number): number {
 }
 
 .info-panel__footer strong {
+  min-width: 0;
+  overflow: hidden;
   color: #3a3a3c;
   font-weight: 600;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .info-panel__loading {

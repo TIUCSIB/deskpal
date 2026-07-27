@@ -14,17 +14,20 @@ const compact = computed(() => context.value.scale < 0.72)
 const contentStyle = computed(() => ({
   ...transitionStyle.value,
   '--info-scale': `${effectiveScale.value}`,
+  '--info-content-width': `${232 * effectiveScale.value}px`,
+  '--info-content-height': `${136 * effectiveScale.value}px`,
 }))
 </script>
 
 <template>
   <main class="info-window">
-    <div
-      class="info-window__content"
-      :class="revision % 2 === 0 ? 'info-window__content--enter-a' : 'info-window__content--enter-b'"
-      :style="contentStyle"
-    >
-      <InfoPanel :info="context.info" :compact="compact" />
+    <div class="info-window__content" :style="contentStyle">
+      <div
+        class="info-window__panel"
+        :class="revision % 2 === 0 ? 'info-window__panel--enter-a' : 'info-window__panel--enter-b'"
+      >
+        <InfoPanel :info="context.info" :compact="compact" />
+      </div>
     </div>
   </main>
 </template>
@@ -41,19 +44,31 @@ const contentStyle = computed(() => ({
 }
 
 .info-window__content {
+  width: var(--info-content-width, 232px);
+  height: var(--info-content-height, 136px);
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.info-window__panel {
   width: 232px;
   height: 136px;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  transform-origin: var(--overlay-origin, center);
+  transform: scale(var(--info-scale, 1));
+  transform-origin: center;
 }
 
-.info-window__content--enter-a {
+.info-window__panel--enter-a {
   animation: overlay-enter-a 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
 }
 
-.info-window__content--enter-b {
+.info-window__panel--enter-b {
   animation: overlay-enter-b 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
 }
 
@@ -82,7 +97,7 @@ const contentStyle = computed(() => ({
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .info-window__content {
+  .info-window__panel {
     animation-duration: 1ms;
   }
 }
