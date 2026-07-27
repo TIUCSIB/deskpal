@@ -7,6 +7,10 @@ export interface PetPersonality {
   defaultReplies: string[]
   sleepyReplies: string[]
   supportiveReplies: string[]
+  interactionReplies: {
+    click: string[]
+    pet: string[]
+  }
   systemReplies: {
     missing: string
     memory: (used: string) => string
@@ -33,6 +37,10 @@ const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
     ],
     sleepyReplies: ['这么晚了还不睡吗？注意身体哦～', '夜深了，明天再忙吧～', '我也困了...要不要一起休息？'],
     supportiveReplies: ['你辛苦啦～记得适当休息哦！'],
+    interactionReplies: {
+      click: ['收到！咕嘎马上陪你聊天。', '嘿嘿，被你发现啦！', '轻轻点一下就好哦～'],
+      pet: ['摸摸收到～今天也要一起加油！', '咕嘎很喜欢这样的陪伴。', '暖暖的，心情变好啦～'],
+    },
     systemReplies: {
       missing: '我还没拿到这项系统数据呢...',
       memory: (used) => `现在内存用了 ${used}`,
@@ -60,6 +68,10 @@ const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
     ],
     sleepyReplies: ['这么晚还在加班吗？月薪猫不同意。', '今天先到这里吧，明天再把事情做好。', '我开始打瞌睡了，你也该休息啦。'],
     supportiveReplies: ['辛苦了，慢一点也没关系，先照顾好自己。'],
+    interactionReplies: {
+      click: ['喵，收到你的召唤。', '在呢，先把这一件事做好。', '别急，月薪猫陪你慢慢来。'],
+      pet: ['摸摸让月薪猫恢复一点电量。', '谢谢你，今天也会好好陪着你喵。', '被摸到了，工作动力加一。'],
+    },
     systemReplies: {
       missing: '这项数据还没到工位上喵。',
       memory: (used) => `内存现在用了 ${used}，要不要关掉几个后台程序？`,
@@ -87,6 +99,10 @@ const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
     ],
     sleepyReplies: ['夜色很深了，魔法也该休息啦。', '明天再继续施法吧，今晚先好好睡一觉。', '琪琪的扫帚都困了，你也早点休息。'],
     supportiveReplies: ['辛苦啦，喝点水，给自己一点恢复魔法。'],
+    interactionReplies: {
+      click: ['魔女收到召唤，马上出现！', '轻点一下，魔法就会回应。', '琪琪在，今天也一起顺利完成吧。'],
+      pet: ['摸摸让琪琪的魔力恢复啦。', '扫帚也感受到你的温柔了。', '谢谢你，送你一点好运魔法。'],
+    },
     systemReplies: {
       missing: '水晶球还没映出这项数据。',
       memory: (used) => `水晶球显示内存用了 ${used}。`,
@@ -106,6 +122,19 @@ const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
   },
 }
 
+export type PetInteractionKind = 'click' | 'pet'
+
 export function getPetPersonality(roleId: PetRoleId): PetPersonality {
   return PERSONALITIES[roleId]
+}
+
+/** 按角色随机取得一次互动短句 */
+export function getPetInteractionReply(
+  roleId: PetRoleId,
+  kind: PetInteractionKind,
+  random: () => number = Math.random,
+): string {
+  const replies = getPetPersonality(roleId).interactionReplies[kind]
+  const index = Math.min(Math.floor(random() * replies.length), replies.length - 1)
+  return replies[index] ?? ''
 }

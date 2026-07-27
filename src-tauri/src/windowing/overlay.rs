@@ -37,9 +37,18 @@ pub fn toggle_chat_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    present_overlay(app, CHAT_WINDOW)?;
-    sync_info_window_visibility(app)?;
-    sync_reminder_window_visibility(app)?;
+    show_chat_window(app)
+}
+
+pub fn show_chat_window(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(CHAT_WINDOW)
+        .ok_or_else(|| "找不到聊天窗口".to_string())?;
+    if !window.is_visible().map_err(|error| error.to_string())? {
+        present_overlay(app, CHAT_WINDOW)?;
+        sync_info_window_visibility(app)?;
+        sync_reminder_window_visibility(app)?;
+    }
     window.set_focus().map_err(|error| error.to_string())?;
     window
         .emit("chat://focus-input", ())
@@ -60,6 +69,13 @@ pub fn request_info_window_visibility(app: &AppHandle, visible: bool) -> Result<
         state.set_info_requested_visible(visible)?;
     }
     sync_info_window_visibility(app)
+}
+
+pub fn show_info_window_now(app: &AppHandle) -> Result<(), String> {
+    if chat_window_visible(app) {
+        return Ok(());
+    }
+    present_overlay(app, INFO_WINDOW)
 }
 
 pub fn sync_info_window_visibility(app: &AppHandle) -> Result<(), String> {

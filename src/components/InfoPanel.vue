@@ -6,6 +6,7 @@ import type { SystemInfo } from '@/types/system'
 const props = withDefaults(
   defineProps<{
     info: SystemInfo | null
+    interactionText?: string | null
     compact?: boolean
   }>(),
   { compact: false },
@@ -88,8 +89,8 @@ function safeUsage(usage: number): number {
       </div>
 
       <div class="info-panel__footer">
-        <span>运行时间</span>
-        <strong>{{ uptimeText }}</strong>
+        <span>{{ interactionText ? '桌宠' : '运行时间' }}</span>
+        <strong>{{ interactionText ?? uptimeText }}</strong>
       </div>
     </template>
 

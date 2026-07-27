@@ -199,6 +199,47 @@ fn updating_and_deleting_reminders_only_affects_target_item() {
 }
 
 #[test]
+fn pause_enabled_reminders_leaves_disabled_reminders_unchanged() {
+    let state = test_state("pause-enabled-reminders");
+    let first = state
+        .create_reminder(interval_input("喝水", 30))
+        .expect("create first reminder")
+        .reminders
+        .into_iter()
+        .next()
+        .expect("first reminder");
+    let second = state
+        .create_reminder(interval_input("休息", 45))
+        .expect("create second reminder")
+        .reminders
+        .into_iter()
+        .last()
+        .expect("second reminder");
+    state
+        .set_reminder_enabled(second.id.clone(), false)
+        .expect("disable second reminder");
+
+    let updated = state
+        .pause_enabled_reminders_until("2030-01-01T00:00:00+00:00".to_string())
+        .expect("pause enabled reminders");
+
+    assert_eq!(updated.reminders[0].id, first.id);
+    let paused_until = updated.reminders[0]
+        .paused_until
+        .as_deref()
+        .expect("enabled reminder is paused");
+    assert_eq!(
+        chrono::DateTime::parse_from_rfc3339(paused_until).expect("stored pause time"),
+        chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00+00:00")
+            .expect("expected pause time")
+    );
+    assert_eq!(updated.reminders[1].id, second.id);
+    assert!(!updated.reminders[1].enabled);
+    assert_eq!(updated.reminders[1].paused_until, None);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
 fn creating_duplicate_reminders_assigns_unique_ids() {
     let state = test_state("reminder-ids");
 

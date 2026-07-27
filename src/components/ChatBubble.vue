@@ -3,7 +3,7 @@
  * ChatBubble.vue - iOS 风格单容器聊天
  * 输入、加载和回复在同一表面内切换。
  */
-import { nextTick, onUnmounted, ref } from 'vue'
+import { nextTick, onUnmounted, ref, watch } from 'vue'
 import type { PetRoleId } from '@/types/pet'
 import type { PetMood, SystemInfo } from '@/types/system'
 import { generateReply } from '@/composables/useChat'
@@ -14,6 +14,8 @@ const props = defineProps<{
   info: SystemInfo | null
   mood: PetMood
   roleId: PetRoleId
+  interactionLevel: number
+  interactionText: string | null
 }>()
 
 const LOADING_DURATION = 420
@@ -22,6 +24,15 @@ const replyText = ref('')
 const view = ref<ChatView>('input')
 const inputRef = ref<HTMLInputElement | null>(null)
 let replyTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => props.interactionText,
+  (text) => {
+    if (!text || view.value === 'loading') return
+    replyText.value = text
+    view.value = 'reply'
+  },
+)
 
 /** 将焦点交给输入框 */
 function focusInput() {
@@ -42,7 +53,14 @@ function handleSend() {
   const text = inputText.value.trim()
   if (!text || view.value !== 'input') return
 
-  const reply = generateReply(text, props.info, props.mood, props.roleId)
+  const reply = generateReply(
+    text,
+    props.info,
+    props.mood,
+    props.roleId,
+    Math.random,
+    props.interactionLevel,
+  )
   inputText.value = ''
   view.value = 'loading'
   replyTimer = setTimeout(() => {

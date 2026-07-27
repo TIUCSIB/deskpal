@@ -495,6 +495,20 @@ impl SettingsState {
         })
     }
 
+    pub fn pause_enabled_reminders_until(
+        &self,
+        paused_until: String,
+    ) -> Result<AppSettings, String> {
+        self.update(|settings| {
+            let paused_until = normalize_pause(Some(paused_until));
+            for reminder in &mut settings.reminders {
+                if reminder.enabled {
+                    reminder.paused_until = paused_until.clone();
+                }
+            }
+        })
+    }
+
     pub fn reset_all(&self) -> Result<AppSettings, String> {
         self.update(|settings| *settings = AppSettings::default())
     }

@@ -7,10 +7,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const DRAG_THRESHOLD = 5
 const DRAG_ANIMATION_HOLD_MS = 1100
+const CLICK_FEEDBACK_COOLDOWN_MS = 1500
 
 export type DragDirection = 'left' | 'right'
 
-export function usePetInteraction() {
+export function usePetInteraction(now: () => number = Date.now) {
   const isDragging = ref(false)
   const dragDirection = ref<DragDirection | null>(null)
   let dragStartX = 0
@@ -18,6 +19,7 @@ export function usePetInteraction() {
   let mouseDownOnPet = false
   let dragActive = false
   let suppressNextClick = false
+  let lastClickFeedbackAt = Number.NEGATIVE_INFINITY
   let dragReleaseTimer: ReturnType<typeof setTimeout> | null = null
 
   function exceedsThreshold(event: MouseEvent): boolean {
@@ -39,6 +41,14 @@ export function usePetInteraction() {
     mouseDownOnPet = false
     suppressNextClick = false
     return !shouldSuppress
+  }
+
+  /** 判断本次点击是否允许触发互动反馈 */
+  function tryTriggerClickFeedback(): boolean {
+    const current = now()
+    if (current - lastClickFeedbackAt < CLICK_FEEDBACK_COOLDOWN_MS) return false
+    lastClickFeedbackAt = current
+    return true
   }
 
   async function handleWindowMouseMove(event: MouseEvent) {
@@ -82,7 +92,14 @@ export function usePetInteraction() {
   onUnmounted(() => {
     window.removeEventListener('mousemove', handleWindowMouseMove)
     window.removeEventListener('mouseup', handleWindowMouseUp)
+    if (dragReleaseTimer) clearTimeout(dragReleaseTimer)
   })
 
-  return { handlePetPress, shouldActivate, isDragging, dragDirection }
+  return {
+    handlePetPress,
+    shouldActivate,
+    tryTriggerClickFeedback,
+    isDragging,
+    dragDirection,
+  }
 }

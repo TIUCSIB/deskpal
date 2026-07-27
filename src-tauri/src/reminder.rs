@@ -221,6 +221,14 @@ impl ReminderState {
         Ok(data.active.clone())
     }
 
+    pub fn clear_active_and_queue(&self) -> Result<(), String> {
+        let mut data = self.lock()?;
+        data.active = None;
+        data.active_is_preview = false;
+        data.queued.clear();
+        Ok(())
+    }
+
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, ReminderData>, String> {
         self.inner
             .lock()
@@ -302,6 +310,22 @@ pub fn snooze(app: &AppHandle, reminder_id: String) -> Result<(), String> {
         .ok_or_else(|| "找不到提醒状态".to_string())?
         .snooze(reminder)?;
     sync_next_payload(app, next)
+}
+
+pub fn pause_all_until_tomorrow(app: &AppHandle) -> Result<(), String> {
+    let paused_until = tomorrow_start().to_rfc3339();
+    let settings_state = app
+        .try_state::<SettingsState>()
+        .ok_or_else(|| "找不到应用设置状态".to_string())?;
+    let settings = settings_state.pause_enabled_reminders_until(paused_until)?;
+    let state = app
+        .try_state::<ReminderState>()
+        .ok_or_else(|| "找不到提醒状态".to_string())?;
+    state.clear_active_and_queue()?;
+    state.configure(&settings)?;
+    windowing::hide_reminder_window(app)?;
+    app.emit(SETTINGS_UPDATED_EVENT, &settings)
+        .map_err(|error| error.to_string())
 }
 
 pub fn pause_until_tomorrow(app: &AppHandle, reminder_id: String) -> Result<(), String> {

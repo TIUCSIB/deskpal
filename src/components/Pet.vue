@@ -26,6 +26,7 @@ const emit = defineEmits<{
   press: [event: MouseEvent]
   activate: [event: MouseEvent]
   hoverChange: [hovering: boolean]
+  contextMenu: [event: MouseEvent]
   scaleChange: [scale: number]
   restoreDefaultSize: []
 }>()
@@ -85,6 +86,7 @@ function handleDoubleClick(event: MouseEvent) {
 
 function handleContextMenu(event: MouseEvent) {
   event.preventDefault()
+  if (isPetPixel(event)) emit('contextMenu', event)
 }
 
 function handleMouseMove(event: MouseEvent) {

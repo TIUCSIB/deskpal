@@ -38,6 +38,8 @@ const CONTEXT: PetContext = {
   mood: 'happy',
   roleId: 'monthly-salary-cat',
   scale: 0.85,
+  interactionText: null,
+  interactionLevel: 0,
 }
 
 let contextReceiver: ReturnType<typeof usePetContextReceiver> | null = null

@@ -1,4 +1,5 @@
 mod commands;
+mod menu;
 mod reminder;
 mod settings;
 mod tray;
@@ -68,11 +69,19 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_opener::init())
+        .on_menu_event(|app, event| {
+            if menu::handles_menu_id(event.id().as_ref()) {
+                menu::handle_menu_event(app, event);
+            } else {
+                tray::handle_menu_event(app, event);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             system_info::get_system_info,
             window::resize_main_window,
             window::resize_info_window,
             window::toggle_chat_window,
+            window::show_chat_window,
             window::hide_chat_window,
             window::hide_settings_window,
             window::hide_reminder_window,
@@ -82,6 +91,7 @@ pub fn run() {
             window::pause_reminder_until_tomorrow,
             window::preview_reminder_window,
             window::set_info_window_visible,
+            window::show_main_context_menu,
             settings_commands::load_app_settings,
             settings_commands::save_pet_scale,
             settings_commands::set_pet_role,

@@ -61,6 +61,8 @@ onUnmounted(() => {
       :info="context.info"
       :mood="context.mood"
       :role-id="context.roleId"
+      :interaction-level="context.interactionLevel"
+      :interaction-text="context.interactionText"
     />
   </main>
 </template>

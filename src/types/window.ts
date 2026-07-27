@@ -8,6 +8,8 @@ export interface PetContext {
   mood: PetMood
   roleId: PetRoleId
   scale: number
+  interactionText: string | null
+  interactionLevel: number
 }
 
 export type PetContextRecipient = 'chat' | 'info' | 'reminder'

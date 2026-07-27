@@ -26,7 +26,11 @@ const contentStyle = computed(() => ({
         class="info-window__panel"
         :class="revision % 2 === 0 ? 'info-window__panel--enter-a' : 'info-window__panel--enter-b'"
       >
-        <InfoPanel :info="context.info" :compact="compact" />
+        <InfoPanel
+          :info="context.info"
+          :interaction-text="context.interactionText"
+          :compact="compact"
+        />
       </div>
     </div>
   </main>

@@ -16,6 +16,8 @@ const INITIAL_CONTEXT: PetContext = {
   mood: 'normal',
   roleId: 'guga',
   scale: 1,
+  interactionText: null,
+  interactionLevel: 0,
 }
 
 const INITIAL_REMINDER: ReminderPayload = {

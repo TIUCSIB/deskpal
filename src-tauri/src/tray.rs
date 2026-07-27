@@ -23,7 +23,6 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
         .menu(&tray_menu)
         .tooltip("DeskPal")
         .show_menu_on_left_click(false)
-        .on_menu_event(handle_menu_event)
         .on_tray_icon_event(|tray, event| {
             if matches!(
                 event,
@@ -45,7 +44,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     match event.id().as_ref() {
         SHOW_MAIN_ID => {
             if let Err(error) = windowing::show_main_window(app) {

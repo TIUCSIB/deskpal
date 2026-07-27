@@ -7,7 +7,8 @@ use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH};
 pub use overlay::{
     hide_chat_window, reposition_visible_overlays, request_info_window_visibility,
-    sync_info_window_visibility, sync_reminder_window_visibility, toggle_chat_window,
+    show_chat_window, show_info_window_now, sync_info_window_visibility,
+    sync_reminder_window_visibility, toggle_chat_window,
 };
 use placement::{anchored_resize_position, current_work_area, default_main_position};
 pub use state::OverlayState;
