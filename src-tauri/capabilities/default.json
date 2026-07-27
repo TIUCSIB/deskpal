@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Shared capability for the desktop pet windows",
-  "windows": ["main", "chat", "info", "reminder", "settings"],
+  "windows": ["main", "chat", "info", "reminder", "feedback", "settings"],
   "permissions": [
     "core:default",
     "opener:default"

@@ -44,14 +44,24 @@ pub struct OverlayPlacement {
     pub side: OverlaySide,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResizePlan {
+    pub size: PhysicalSize<u32>,
+    pub position: PhysicalPosition<i32>,
+}
+
 pub fn clamp_position(
     x: i32,
     y: i32,
     size: PhysicalSize<u32>,
     area: Bounds,
 ) -> PhysicalPosition<i32> {
-    let max_x = area.x + area.width.saturating_sub(size.width) as i32;
-    let max_y = area.y + area.height.saturating_sub(size.height) as i32;
+    let max_x = area
+        .x
+        .saturating_add(area.width.saturating_sub(size.width) as i32);
+    let max_y = area
+        .y
+        .saturating_add(area.height.saturating_sub(size.height) as i32);
     PhysicalPosition::new(x.clamp(area.x, max_x), y.clamp(area.y, max_y))
 }
 
@@ -107,17 +117,75 @@ pub fn anchored_resize_position(
     area: Bounds,
 ) -> PhysicalPosition<i32> {
     clamp_position(
-        position.x + old_size.width as i32 / 2 - new_size.width as i32 / 2,
-        position.y + old_size.height as i32 - new_size.height as i32,
+        position
+            .x
+            .saturating_add(old_size.width as i32 / 2)
+            .saturating_sub(new_size.width as i32 / 2),
+        position
+            .y
+            .saturating_add(old_size.height as i32)
+            .saturating_sub(new_size.height as i32),
         new_size,
         area,
     )
 }
 
+pub fn resize_plan(
+    position: PhysicalPosition<i32>,
+    old_size: PhysicalSize<u32>,
+    logical_size: (f64, f64),
+    scale_factor: f64,
+    area: Bounds,
+) -> Option<ResizePlan> {
+    let (width, height) = logical_size;
+    if !width.is_finite()
+        || !height.is_finite()
+        || width <= 0.0
+        || height <= 0.0
+        || !scale_factor.is_finite()
+        || scale_factor <= 0.0
+    {
+        return None;
+    }
+
+    let size = PhysicalSize::new(
+        (width * scale_factor).round().clamp(0.0, u32::MAX as f64) as u32,
+        (height * scale_factor).round().clamp(0.0, u32::MAX as f64) as u32,
+    );
+    Some(ResizePlan {
+        position: anchored_resize_position(position, old_size, size, area),
+        size,
+    })
+}
+
+pub fn restored_main_position(
+    saved_position: Option<PhysicalPosition<i32>>,
+    size: PhysicalSize<u32>,
+    area: Bounds,
+) -> PhysicalPosition<i32> {
+    saved_position
+        .map(|saved| clamp_position(saved.x, saved.y, size, area))
+        .unwrap_or_else(|| default_main_position(size, area))
+}
+
+pub fn reclamped_main_position(
+    position: PhysicalPosition<i32>,
+    size: PhysicalSize<u32>,
+    area: Bounds,
+) -> PhysicalPosition<i32> {
+    clamp_position(position.x, position.y, size, area)
+}
+
 pub fn default_main_position(size: PhysicalSize<u32>, area: Bounds) -> PhysicalPosition<i32> {
     clamp_position(
-        area.x + area.width as i32 - size.width as i32 - MAIN_WINDOW_RIGHT_MARGIN,
-        area.y + area.height as i32 - size.height as i32 - MAIN_WINDOW_BOTTOM_MARGIN,
+        area.x
+            .saturating_add(area.width.min(i32::MAX as u32) as i32)
+            .saturating_sub(size.width.min(i32::MAX as u32) as i32)
+            .saturating_sub(MAIN_WINDOW_RIGHT_MARGIN),
+        area.y
+            .saturating_add(area.height.min(i32::MAX as u32) as i32)
+            .saturating_sub(size.height.min(i32::MAX as u32) as i32)
+            .saturating_sub(MAIN_WINDOW_BOTTOM_MARGIN),
         size,
         area,
     )
@@ -136,8 +204,15 @@ fn horizontal_priority(
     main_size: PhysicalSize<u32>,
     area: Bounds,
 ) -> OverlaySide {
-    let left_space = main_position.x - area.x;
-    let right_space = area.x + area.width as i32 - (main_position.x + main_size.width as i32);
+    let left_space = main_position.x.saturating_sub(area.x);
+    let right_space = area
+        .x
+        .saturating_add(area.width.min(i32::MAX as u32) as i32)
+        .saturating_sub(
+            main_position
+                .x
+                .saturating_add(main_size.width.min(i32::MAX as u32) as i32),
+        );
     if right_space >= left_space {
         OverlaySide::Right
     } else {
@@ -150,8 +225,15 @@ fn vertical_priority(
     main_size: PhysicalSize<u32>,
     area: Bounds,
 ) -> OverlaySide {
-    let top_space = main_position.y - area.y;
-    let bottom_space = area.y + area.height as i32 - (main_position.y + main_size.height as i32);
+    let top_space = main_position.y.saturating_sub(area.y);
+    let bottom_space = area
+        .y
+        .saturating_add(area.height.min(i32::MAX as u32) as i32)
+        .saturating_sub(
+            main_position
+                .y
+                .saturating_add(main_size.height.min(i32::MAX as u32) as i32),
+        );
     if bottom_space >= top_space {
         OverlaySide::Below
     } else {

@@ -12,17 +12,37 @@ const props = withDefaults(
   { compact: false },
 )
 
-const uptimeText = computed(() => {
-  if (!props.info) return '--'
-  const hours = Math.floor(props.info.uptime_secs / 3600)
-  const minutes = Math.floor((props.info.uptime_secs % 3600) / 60)
-  const seconds = props.info.uptime_secs % 60
-  return `${hours}h ${minutes}m ${seconds}s`
-})
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
+  if (hours > 0) return `${hours}小时${minutes}分钟`
+  if (minutes > 0) return `${minutes}分钟${remainingSeconds}秒`
+  return `${remainingSeconds}秒`
+}
 
+const uptimeText = computed(() => props.info ? formatDuration(props.info.uptime_secs) : '--')
+const idleText = computed(() => {
+  if (!props.info || props.info.idle_seconds === null) return '暂不可用'
+  return formatDuration(props.info.idle_seconds)
+})
+const networkStateText = computed(() => {
+  if (props.info?.network_connected === true) return '已连接'
+  if (props.info?.network_connected === false) return '未连接'
+  return '状态未知'
+})
 const networkText = computed(() => {
   if (!props.info) return '--'
   return `↓ ${props.info.network_down_kbps.toFixed(1)} / ↑ ${props.info.network_up_kbps.toFixed(1)} KB/s`
+})
+const batteryStateText = computed(() => {
+  if (props.info?.battery_charging === true) return '已接通电源'
+  if (props.info?.battery_charging === false) return '使用电池'
+  return '电源状态未知'
+})
+const batteryLabel = computed(() => {
+  if (props.info?.battery_percent === null) return ''
+  return `电池：电量 ${props.info?.battery_percent}% ，${batteryStateText.value}`
 })
 
 function barColor(usage: number): string {
@@ -42,13 +62,7 @@ function safeUsage(usage: number): number {
       <div class="info-panel__row">
         <span class="info-panel__label">CPU</span>
         <div class="info-panel__bar">
-          <i
-            class="info-panel__fill"
-            :style="{
-              width: safeUsage(info.cpu_usage) + '%',
-              backgroundColor: barColor(info.cpu_usage),
-            }"
-          ></i>
+          <i class="info-panel__fill" :style="{ width: safeUsage(info.cpu_usage) + '%', backgroundColor: barColor(info.cpu_usage) }"></i>
         </div>
         <span class="info-panel__value">{{ info.cpu_usage.toFixed(1) }}%</span>
       </div>
@@ -56,13 +70,7 @@ function safeUsage(usage: number): number {
       <div class="info-panel__row">
         <span class="info-panel__label">内存</span>
         <div class="info-panel__bar">
-          <i
-            class="info-panel__fill"
-            :style="{
-              width: safeUsage(info.memory_usage) + '%',
-              backgroundColor: barColor(info.memory_usage),
-            }"
-          ></i>
+          <i class="info-panel__fill" :style="{ width: safeUsage(info.memory_usage) + '%', backgroundColor: barColor(info.memory_usage) }"></i>
         </div>
         <span class="info-panel__value">{{ info.memory_usage.toFixed(1) }}%</span>
       </div>
@@ -70,13 +78,7 @@ function safeUsage(usage: number): number {
       <div class="info-panel__row">
         <span class="info-panel__label">存储</span>
         <div class="info-panel__bar">
-          <i
-            class="info-panel__fill"
-            :style="{
-              width: safeUsage(info.disk_usage) + '%',
-              backgroundColor: barColor(info.disk_usage),
-            }"
-          ></i>
+          <i class="info-panel__fill" :style="{ width: safeUsage(info.disk_usage) + '%', backgroundColor: barColor(info.disk_usage) }"></i>
         </div>
         <span class="info-panel__value">{{ info.disk_usage.toFixed(1) }}%</span>
       </div>
@@ -84,7 +86,19 @@ function safeUsage(usage: number): number {
       <div class="info-panel__meta">
         <div class="info-panel__meta-item">
           <span class="info-panel__meta-label">网络</span>
-          <strong class="info-panel__meta-value">{{ networkText }}</strong>
+          <strong class="info-panel__meta-value" :aria-label="`网络：${networkStateText}，${networkText}`">
+            {{ networkStateText }} · {{ networkText }}
+          </strong>
+        </div>
+        <div v-if="info.battery_percent !== null" class="info-panel__meta-item">
+          <span class="info-panel__meta-label">电池</span>
+          <strong class="info-panel__meta-value" :aria-label="batteryLabel">
+            {{ info.battery_percent }}% · {{ batteryStateText }}
+          </strong>
+        </div>
+        <div class="info-panel__meta-item">
+          <span class="info-panel__meta-label">空闲</span>
+          <strong class="info-panel__meta-value" :aria-label="`空闲时间：${idleText}`">{{ idleText }}</strong>
         </div>
       </div>
 

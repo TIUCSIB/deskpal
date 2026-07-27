@@ -14,6 +14,7 @@ import { usePetBehavior } from '@/composables/usePetBehavior'
 import { usePetInteraction } from '@/composables/usePetInteraction'
 import { usePetInteractionState } from '@/composables/usePetInteractionState'
 import { usePetState } from '@/composables/usePetState'
+import { useSystemFeedback } from '@/composables/useSystemFeedback'
 import { useSystemInfo } from '@/composables/useSystemInfo'
 import { broadcastPetContext, sendPetContext } from '@/composables/useWindowBridge'
 import { DEFAULT_PET_SCALE } from '@/types/settings'
@@ -21,6 +22,7 @@ import type { PetContext, PetContextRequest } from '@/types/window'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const { info } = useSystemInfo()
+const { evaluate: evaluateSystemFeedback } = useSystemFeedback()
 const { mood, updateMood } = usePetState()
 const { settings, ready, loadSettings } = useAppSettings()
 const {
@@ -72,6 +74,14 @@ function broadcastCurrentContext() {
 watch(
   info,
   (value) => {
+    if (value) {
+      const feedback = evaluateSystemFeedback(value, settings.value.quiet_hours)
+      if (feedback) {
+        void invoke('show_system_feedback', { payload: feedback }).catch((error: unknown) => {
+          console.error('显示系统反馈失败:', error)
+        })
+      }
+    }
     updateMood(value)
     setMood(mood.value)
     void broadcastCurrentContext()

@@ -10,6 +10,7 @@ import {
   centerPosition,
   clampPosition,
   normalizeWindowSize,
+  monitorWorkArea,
   type WindowRect,
 } from '@/composables/settingsWindowGeometry'
 import {
@@ -101,12 +102,7 @@ export function useSettingsWindow() {
   async function resolveMonitorRect(): Promise<WindowRect | null> {
     const monitor = (await currentMonitor()) ?? (await primaryMonitor())
     if (!monitor) return null
-    return {
-      x: monitor.position.x,
-      y: monitor.position.y,
-      width: monitor.size.width,
-      height: monitor.size.height,
-    }
+    return monitorWorkArea(monitor)
   }
 
   async function restoreWindowBounds() {

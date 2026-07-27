@@ -5,6 +5,7 @@ use super::{
     ActiveReminder, ReminderEventKind, ReminderHistoryState, ReminderPayload, ReminderState,
 };
 use crate::{
+    commands::system_info::SystemMonitor,
     settings::{AppSettings, Reminder, SettingsState},
     windowing,
 };
@@ -106,7 +107,11 @@ fn finish(
 }
 fn check_and_fire(app: &AppHandle) -> Result<(), String> {
     let settings = get_settings(app)?;
-    let (payload, deferred) = state(app)?.collect_due(&settings)?;
+    let idle_secs = app
+        .try_state::<SystemMonitor>()
+        .and_then(|monitor| monitor.idle_seconds());
+    let intervals_paused = state(app)?.reconcile_interval_pause(&settings, idle_secs)?;
+    let (payload, deferred) = state(app)?.collect_due(&settings, intervals_paused)?;
     for item in deferred {
         log(app, ReminderEventKind::QuietDeferred, &item)?;
     }

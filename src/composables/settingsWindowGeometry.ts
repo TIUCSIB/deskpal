@@ -12,6 +12,42 @@ export interface WindowRect {
   height: number
 }
 
+export interface MonitorGeometry {
+  position: Pick<WindowRect, 'x' | 'y'>
+  size: Pick<WindowRect, 'width' | 'height'>
+  workArea?: {
+    position: Pick<WindowRect, 'x' | 'y'>
+    size: Pick<WindowRect, 'width' | 'height'>
+  }
+}
+
+export function monitorWorkArea(monitor: MonitorGeometry): WindowRect {
+  const workArea = monitor.workArea
+  if (
+    workArea
+    && Number.isFinite(workArea.position.x)
+    && Number.isFinite(workArea.position.y)
+    && Number.isFinite(workArea.size.width)
+    && Number.isFinite(workArea.size.height)
+    && workArea.size.width > 0
+    && workArea.size.height > 0
+  ) {
+    return {
+      x: workArea.position.x,
+      y: workArea.position.y,
+      width: workArea.size.width,
+      height: workArea.size.height,
+    }
+  }
+
+  return {
+    x: monitor.position.x,
+    y: monitor.position.y,
+    width: monitor.size.width,
+    height: monitor.size.height,
+  }
+}
+
 export interface NormalizedWindowSize {
   width: number
   height: number

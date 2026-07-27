@@ -1,4 +1,5 @@
 mod commands;
+mod feedback;
 mod menu;
 mod reminder;
 mod settings;
@@ -61,6 +62,7 @@ pub(crate) fn sync_autostart(app: &AppHandle, enabled: bool) -> Result<(), Strin
 pub fn run() {
     tauri::Builder::default()
         .manage(system_info::SystemMonitor::new())
+        .manage(feedback::SystemFeedbackState::default())
         .manage(windowing::OverlayState::default())
         .manage(reminder::ReminderState::default())
         .plugin(GlobalShortcutBuilder::new().build())
@@ -85,7 +87,11 @@ pub fn run() {
             window::hide_chat_window,
             window::hide_settings_window,
             window::hide_reminder_window,
+            window::hide_system_feedback_window,
             window::active_reminder_payload,
+            window::active_system_feedback_payload,
+            window::show_system_feedback,
+            window::dismiss_system_feedback,
             window::dismiss_reminder_window,
             window::complete_reminder_window,
             window::snooze_reminder,
@@ -130,6 +136,7 @@ pub fn run() {
                     windowing::CHAT_WINDOW,
                     windowing::INFO_WINDOW,
                     windowing::REMINDER_WINDOW,
+                    windowing::SYSTEM_FEEDBACK_WINDOW,
                     windowing::SETTINGS_WINDOW,
                 ] {
                     if let Some(window) = app.get_webview_window(label) {
@@ -174,15 +181,27 @@ pub fn run() {
             reminder::start_scheduler(app.handle().clone());
             windowing::sync_info_window_visibility(&app.handle())?;
             windowing::sync_reminder_window_visibility(&app.handle())?;
+            windowing::sync_system_feedback_window_visibility(&app.handle())?;
 
             if let Some(main) = app.get_webview_window(windowing::MAIN_WINDOW) {
                 let app_handle = app.handle().clone();
                 main.on_window_event(move |event| {
-                    if matches!(
-                        event,
-                        WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. }
-                    ) {
+                    if matches!(event, WindowEvent::Moved(_)) {
                         windowing::reposition_visible_overlays(&app_handle);
+                        if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
+                            if let Some(window) =
+                                app_handle.get_webview_window(windowing::MAIN_WINDOW)
+                            {
+                                if let Ok(position) = window.outer_position() {
+                                    let _ = settings.save_main_position_throttled(position.into());
+                                }
+                            }
+                        }
+                    }
+                    if matches!(event, WindowEvent::ScaleFactorChanged { .. }) {
+                        if let Err(error) = windowing::reclamp_main_window_position(&app_handle) {
+                            eprintln!("无法在 DPI 变化后重新约束桌宠窗口: {error}");
+                        }
                         if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
                             if let Some(window) =
                                 app_handle.get_webview_window(windowing::MAIN_WINDOW)

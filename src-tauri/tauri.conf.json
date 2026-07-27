@@ -46,7 +46,7 @@
         "title": "桌宠状态",
         "url": "index.html?window=info",
         "width": 240,
-        "height": 144,
+        "height": 166,
         "decorations": false,
         "transparent": true,
         "shadow": false,
@@ -70,6 +70,21 @@
         "resizable": false,
         "skipTaskbar": true,
         "focus": true,
+        "visible": false
+      },
+      {
+        "label": "feedback",
+        "title": "桌宠系统反馈",
+        "url": "index.html?window=feedback",
+        "width": 248,
+        "height": 112,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": false,
         "visible": false
       },
       {

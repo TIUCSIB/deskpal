@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Emitter};
 
 use crate::{
+    feedback::{self, SystemFeedbackPayload},
     menu,
     reminder::{self, ReminderActivity, ReminderHistoryState, ReminderPayload},
     windowing,
@@ -39,6 +40,28 @@ pub fn hide_settings_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn hide_reminder_window(app: AppHandle) -> Result<(), String> {
     windowing::hide_reminder_window(&app)
+}
+
+#[tauri::command]
+pub fn hide_system_feedback_window(app: AppHandle) -> Result<(), String> {
+    windowing::hide_system_feedback_window(&app)
+}
+
+#[tauri::command]
+pub fn active_system_feedback_payload(
+    app: AppHandle,
+) -> Result<Option<SystemFeedbackPayload>, String> {
+    feedback::active_payload(&app)
+}
+
+#[tauri::command]
+pub fn show_system_feedback(app: AppHandle, payload: SystemFeedbackPayload) -> Result<(), String> {
+    feedback::show(&app, payload)
+}
+
+#[tauri::command]
+pub fn dismiss_system_feedback(app: AppHandle, id: String) -> Result<(), String> {
+    feedback::dismiss(&app, id)
 }
 
 #[tauri::command]

@@ -1,19 +1,25 @@
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
+    feedback::SystemFeedbackState,
     reminder::ReminderState,
     settings::{InfoMode, SettingsState},
 };
 
 use super::{
     placement::{bubble_placement, current_work_area, info_placement, OverlayPlacement},
-    OverlayState, CHAT_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW,
+    OverlayState, CHAT_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW, SYSTEM_FEEDBACK_WINDOW,
 };
 
 const OVERLAY_PRESENT_EVENT: &str = "overlay://present";
 
 pub fn reposition_visible_overlays(app: &AppHandle) {
-    for label in [CHAT_WINDOW, INFO_WINDOW, REMINDER_WINDOW] {
+    for label in [
+        CHAT_WINDOW,
+        INFO_WINDOW,
+        REMINDER_WINDOW,
+        SYSTEM_FEEDBACK_WINDOW,
+    ] {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
@@ -34,6 +40,7 @@ pub fn toggle_chat_window(app: &AppHandle) -> Result<(), String> {
         window.hide().map_err(|error| error.to_string())?;
         sync_info_window_visibility(app)?;
         sync_reminder_window_visibility(app)?;
+        sync_system_feedback_window_visibility(app)?;
         return Ok(());
     }
 
@@ -48,6 +55,7 @@ pub fn show_chat_window(app: &AppHandle) -> Result<(), String> {
         present_overlay(app, CHAT_WINDOW)?;
         sync_info_window_visibility(app)?;
         sync_reminder_window_visibility(app)?;
+        sync_system_feedback_window_visibility(app)?;
     }
     window.set_focus().map_err(|error| error.to_string())?;
     window
@@ -61,7 +69,8 @@ pub fn hide_chat_window(app: &AppHandle) -> Result<(), String> {
         .hide()
         .map_err(|error| error.to_string())?;
     sync_info_window_visibility(app)?;
-    sync_reminder_window_visibility(app)
+    sync_reminder_window_visibility(app)?;
+    sync_system_feedback_window_visibility(app)
 }
 
 pub fn request_info_window_visibility(app: &AppHandle, visible: bool) -> Result<(), String> {
@@ -104,6 +113,16 @@ pub fn sync_reminder_window_visibility(app: &AppHandle) -> Result<(), String> {
     window.set_focus().map_err(|error| error.to_string())
 }
 
+pub fn sync_system_feedback_window_visibility(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(SYSTEM_FEEDBACK_WINDOW)
+        .ok_or_else(|| "找不到系统反馈窗口".to_string())?;
+    if !system_feedback_active(app) || chat_window_visible(app) || reminder_active(app) {
+        return window.hide().map_err(|error| error.to_string());
+    }
+    present_overlay(app, SYSTEM_FEEDBACK_WINDOW)
+}
+
 fn current_info_mode(app: &AppHandle) -> InfoMode {
     app.try_state::<SettingsState>()
         .and_then(|settings| settings.get().ok())
@@ -120,6 +139,13 @@ fn info_requested_visible(app: &AppHandle) -> bool {
     app.try_state::<OverlayState>()
         .map(|state| state.info_requested_visible())
         .unwrap_or(false)
+}
+
+fn system_feedback_active(app: &AppHandle) -> bool {
+    app.try_state::<SystemFeedbackState>()
+        .and_then(|state| state.active_payload().ok())
+        .flatten()
+        .is_some()
 }
 
 fn reminder_active(app: &AppHandle) -> bool {
@@ -141,7 +167,7 @@ pub(super) fn reposition_overlay(app: &AppHandle, label: &str) -> Result<Overlay
     let overlay_size = overlay.outer_size().map_err(|error| error.to_string())?;
     let area = current_work_area(&main).map_err(|error| error.to_string())?;
     let placement = match label {
-        CHAT_WINDOW | REMINDER_WINDOW => {
+        CHAT_WINDOW | REMINDER_WINDOW | SYSTEM_FEEDBACK_WINDOW => {
             bubble_placement(main_position, main_size, overlay_size, area)
         }
         INFO_WINDOW => info_placement(main_position, main_size, overlay_size, area),

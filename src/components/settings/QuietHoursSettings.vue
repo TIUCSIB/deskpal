@@ -20,7 +20,7 @@ const emit = defineEmits<{
     <SettingsToggleRow
       id="reminder-quiet-hours"
       label="免打扰时段"
-      description="在此期间不弹出提醒。"
+      description="在此期间不弹出用户提醒或系统反馈。"
       :checked="props.draft.enabled"
       @update:checked="emit('update:enabled', $event)"
     />

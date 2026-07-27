@@ -9,6 +9,7 @@ import type {
   PetContextRecipient,
   ReminderPayload,
 } from '@/types/window'
+import type { SystemFeedbackPayload } from '@/types/systemFeedback'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const INITIAL_CONTEXT: PetContext = {
@@ -35,6 +36,7 @@ export async function broadcastPetContext(context: PetContext) {
     sendPetContext('chat', context),
     sendPetContext('info', context),
     sendPetContext('reminder', context),
+    sendPetContext('feedback', context),
   ])
 }
 
@@ -78,6 +80,44 @@ export function usePetContextReceiver(recipient: PetContextRecipient) {
   onUnmounted(dispose)
 
   return { context, start, dispose }
+}
+
+export function useSystemFeedbackPayloadReceiver() {
+  const payload = ref<SystemFeedbackPayload | null>(null)
+  let unlisten: UnlistenFn | null = null
+  let startPromise: Promise<void> | null = null
+  let disposed = false
+
+  function start() {
+    if (unlisten || startPromise) return startPromise ?? Promise.resolve()
+
+    disposed = false
+    startPromise = listen<SystemFeedbackPayload>(WINDOW_EVENTS.systemFeedbackPayload, (event) => {
+      payload.value = event.payload
+    }).then((nextUnlisten) => {
+      startPromise = null
+      if (disposed) {
+        nextUnlisten()
+        return
+      }
+      unlisten = nextUnlisten
+    })
+    return startPromise
+  }
+
+  function dispose() {
+    disposed = true
+    unlisten?.()
+    unlisten = null
+  }
+
+  onMounted(() => {
+    void start()
+  })
+
+  onUnmounted(dispose)
+
+  return { payload, start, dispose }
 }
 
 export function useReminderPayloadReceiver() {

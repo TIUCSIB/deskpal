@@ -1,5 +1,6 @@
 mod actions;
 mod history;
+mod idle;
 mod schedule;
 
 pub use actions::{
@@ -10,6 +11,7 @@ pub use history::{ReminderActivity, ReminderEventKind, ReminderHistoryState};
 
 use crate::settings::{AppSettings, Reminder};
 use chrono::{DateTime, Local};
+use idle::IntervalPause;
 use schedule::{is_paused, next_due, quiet_end, schedule_signature};
 use serde::Serialize;
 use std::{
@@ -37,6 +39,7 @@ struct ReminderData {
     next_due_at: HashMap<String, DateTime<Local>>,
     deferred_scheduled_at: HashMap<String, DateTime<Local>>,
     schedule_signatures: HashMap<String, String>,
+    interval_pause: IntervalPause,
 }
 #[derive(Default)]
 pub struct ReminderState {
@@ -88,6 +91,19 @@ impl ReminderState {
         }
         Ok(())
     }
+    pub(crate) fn reconcile_interval_pause(
+        &self,
+        settings: &AppSettings,
+        idle_secs: Option<u64>,
+    ) -> Result<bool, String> {
+        let now = Local::now();
+        let mut data = self.lock()?;
+        let mut interval_pause = std::mem::take(&mut data.interval_pause);
+        let intervals_paused =
+            interval_pause.reconcile(now, idle_secs, settings, &mut data.next_due_at);
+        data.interval_pause = interval_pause;
+        Ok(intervals_paused)
+    }
     pub fn active_payload(&self) -> Result<Option<ReminderPayload>, String> {
         Ok(self
             .lock()?
@@ -115,6 +131,7 @@ impl ReminderState {
     pub(crate) fn collect_due(
         &self,
         settings: &AppSettings,
+        intervals_paused: bool,
     ) -> Result<(Option<ReminderPayload>, Vec<ActiveReminder>), String> {
         let now = Local::now();
         let mut data = self.lock()?;
@@ -132,6 +149,11 @@ impl ReminderState {
         for (index, reminder) in settings.reminders.iter().enumerate() {
             if !reminder.enabled
                 || is_paused(reminder, now)
+                || (intervals_paused
+                    && matches!(
+                        &reminder.schedule,
+                        crate::settings::ReminderSchedule::Interval { .. }
+                    ))
                 || active.as_deref() == Some(&reminder.id)
                 || queued.contains(&reminder.id)
             {

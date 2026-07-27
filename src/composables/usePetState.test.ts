@@ -4,15 +4,19 @@ import type { SystemInfo } from '@/types/system'
 
 function createInfo(overrides: Partial<SystemInfo> = {}): SystemInfo {
   return {
-    cpu_usage: 40,
-    memory_usage: 60,
-    memory_used_mb: 4096,
-    memory_total_mb: 8192,
-    disk_usage: 50,
-    network_down_kbps: 0,
-    network_up_kbps: 0,
-    uptime_secs: 3600,
     ...overrides,
+    cpu_usage: overrides.cpu_usage ?? 40,
+    memory_usage: overrides.memory_usage ?? 60,
+    memory_used_mb: overrides.memory_used_mb ?? 4096,
+    memory_total_mb: overrides.memory_total_mb ?? 8192,
+    disk_usage: overrides.disk_usage ?? 50,
+    network_down_kbps: overrides.network_down_kbps ?? 0,
+    network_up_kbps: overrides.network_up_kbps ?? 0,
+    network_connected: overrides.network_connected ?? true,
+    battery_percent: overrides.battery_percent ?? null,
+    battery_charging: overrides.battery_charging ?? null,
+    idle_seconds: overrides.idle_seconds ?? null,
+    uptime_secs: overrides.uptime_secs ?? 3600,
   }
 }
 

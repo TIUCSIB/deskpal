@@ -9,13 +9,15 @@ const { context } = usePetContextReceiver('info')
 const { revision, transitionStyle } = useOverlayTransition()
 const INFO_MIN_SCALE = 0.78
 
+const INFO_CONTENT_HEIGHT = 158
+
 const effectiveScale = computed(() => Math.max(context.value.scale, INFO_MIN_SCALE))
 const compact = computed(() => context.value.scale < 0.72)
 const contentStyle = computed(() => ({
   ...transitionStyle.value,
   '--info-scale': `${effectiveScale.value}`,
   '--info-content-width': `${232 * effectiveScale.value}px`,
-  '--info-content-height': `${136 * effectiveScale.value}px`,
+  '--info-content-height': `${INFO_CONTENT_HEIGHT * effectiveScale.value}px`,
 }))
 </script>
 
@@ -49,7 +51,7 @@ const contentStyle = computed(() => ({
 
 .info-window__content {
   width: var(--info-content-width, 232px);
-  height: var(--info-content-height, 136px);
+  height: var(--info-content-height, 158px);
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -59,7 +61,7 @@ const contentStyle = computed(() => ({
 
 .info-window__panel {
   width: 232px;
-  height: 136px;
+  height: 158px;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
