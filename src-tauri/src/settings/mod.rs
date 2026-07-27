@@ -1,7 +1,9 @@
 mod normalize;
 mod state;
+mod transfer;
 
 pub use state::SettingsState;
+pub use transfer::{PortableSettingsEnvelope, SETTINGS_SCHEMA_VERSION};
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -119,6 +121,10 @@ impl Default for QuietHours {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AppSettings {
     #[serde(default)]
+    pub schema_version: u32,
+    #[serde(default)]
+    pub onboarding_completed: bool,
+    #[serde(default)]
     pub main_position: Option<SavedPosition>,
     #[serde(default)]
     pub settings_window_bounds: Option<SavedWindowBounds>,
@@ -148,6 +154,8 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            schema_version: SETTINGS_SCHEMA_VERSION,
+            onboarding_completed: false,
             main_position: None,
             settings_window_bounds: None,
             pet_scale: default_pet_scale(),

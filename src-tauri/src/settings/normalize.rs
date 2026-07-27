@@ -9,14 +9,19 @@ use super::{
 const LEGACY_REMINDER_ID: &str = "legacy-default";
 
 pub(crate) fn parse_settings(content: &str) -> Option<super::AppSettings> {
-    let stored = serde_json::from_str::<StoredSettings>(content).ok()?;
-    let has_reminders = serde_json::from_str::<serde_json::Value>(content)
-        .ok()?
-        .as_object()?
-        .contains_key("reminders");
+    let value = serde_json::from_str::<serde_json::Value>(content).ok()?;
+    let has_reminders = value.as_object()?.contains_key("reminders");
+    let stored = serde_json::from_value::<StoredSettings>(value).ok()?;
     let mut settings = stored.settings;
-    if !has_reminders {
-        settings.reminders = stored.reminder.map(legacy_reminder).into_iter().collect();
+    match settings.schema_version {
+        0 => {
+            if !has_reminders {
+                settings.reminders = stored.reminder.map(legacy_reminder).into_iter().collect();
+            }
+            settings.schema_version = super::SETTINGS_SCHEMA_VERSION;
+        }
+        super::SETTINGS_SCHEMA_VERSION => {}
+        _ => return None,
     }
     Some(settings)
 }

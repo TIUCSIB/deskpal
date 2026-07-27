@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "main-window",
-  "description": "Window controls used only by the pet and settings windows",
-  "windows": ["main", "settings"],
+  "identifier": "pet-window-controls",
+  "description": "桌宠主窗口所需的最小原生窗口控制权限。",
+  "windows": ["main"],
   "permissions": [
     "core:window:allow-start-dragging"
   ]

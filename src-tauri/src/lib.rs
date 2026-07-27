@@ -2,13 +2,17 @@ mod commands;
 mod feedback;
 mod menu;
 mod reminder;
+mod role_packs;
 mod settings;
 mod tray;
 mod windowing;
 
 use std::str::FromStr;
 
-use commands::{settings as settings_commands, system_info, window};
+use commands::{
+    role_packs as role_pack_commands, settings as settings_commands,
+    settings_transfer as settings_transfer_commands, system_info, window,
+};
 use tauri::{AppHandle, Manager, WindowEvent};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
 use tauri_plugin_global_shortcut::{
@@ -61,6 +65,21 @@ pub(crate) fn sync_autostart(app: &AppHandle, enabled: bool) -> Result<(), Strin
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .register_uri_scheme_protocol("role-pack", |context, request| {
+            let role_id = request.uri().path().trim_start_matches('/');
+            let response = role_packs::resource_response(context.app_handle(), role_id);
+            match response {
+                Ok((content, content_type)) => tauri::http::Response::builder()
+                    .header("content-type", content_type)
+                    .header("cache-control", "no-store")
+                    .body(content)
+                    .expect("角色资源响应构建失败"),
+                Err(_) => tauri::http::Response::builder()
+                    .status(tauri::http::StatusCode::NOT_FOUND)
+                    .body(Vec::new())
+                    .expect("角色资源错误响应构建失败"),
+            }
+        })
         .manage(system_info::SystemMonitor::new())
         .manage(feedback::SystemFeedbackState::default())
         .manage(windowing::OverlayState::default())
@@ -70,7 +89,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .on_menu_event(|app, event| {
             if menu::handles_menu_id(event.id().as_ref()) {
                 menu::handle_menu_event(app, event);
@@ -102,6 +121,12 @@ pub fn run() {
             window::set_info_window_visible,
             window::show_main_context_menu,
             settings_commands::load_app_settings,
+            role_pack_commands::list_installed_role_packs,
+            role_pack_commands::install_role_pack,
+            role_pack_commands::remove_role_pack,
+            settings_transfer_commands::export_portable_settings,
+            settings_transfer_commands::import_portable_settings,
+            settings_transfer_commands::complete_settings_onboarding,
             settings_commands::save_pet_scale,
             settings_commands::set_pet_role,
             settings_commands::save_main_window_position,

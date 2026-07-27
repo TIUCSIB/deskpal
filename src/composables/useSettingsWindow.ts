@@ -205,6 +205,34 @@ export function useSettingsWindow() {
     setFeedback('已恢复全部默认设置')
   }
 
+  async function exportPortableSettings() {
+    try {
+      const exported = await invoke<boolean>('export_portable_settings')
+      if (exported) setFeedback('设置已导出')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '设置导出失败')
+    }
+  }
+
+  async function importPortableSettings() {
+    try {
+      const imported = await invoke<boolean>('import_portable_settings')
+      if (!imported) return
+      settings.value = await invoke<AppSettings>('load_app_settings')
+      setFeedback('设置已导入；设备相关配置已保留')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '设置导入失败')
+    }
+  }
+
+  async function completeOnboarding() {
+    try {
+      settings.value = await invoke<AppSettings>('complete_settings_onboarding')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '保存欢迎引导状态失败')
+    }
+  }
+
   onMounted(async () => {
     await loadSettings()
     await restoreWindowBounds()
@@ -244,6 +272,9 @@ export function useSettingsWindow() {
     resetPosition,
     resetSettingsWindowBounds,
     resetAllSettings,
+    exportPortableSettings,
+    importPortableSettings,
+    completeOnboarding,
     reminderSettings,
     ...roleSettings,
   }

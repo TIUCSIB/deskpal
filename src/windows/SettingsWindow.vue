@@ -57,10 +57,15 @@ const {
   resetPosition,
   resetSettingsWindowBounds,
   resetAllSettings,
+  exportPortableSettings,
+  importPortableSettings,
+  completeOnboarding,
   reminderSettings,
   petRoles,
-  selectedRole,
+  rolePackLoading,
   handlePetRoleChange,
+  installRolePack,
+  removeRolePack,
 } = useSettingsWindow()
 
 const INFO_MODE_ID = 'settings-info-mode'
@@ -81,6 +86,14 @@ function handleScaleValue(value: number[] | undefined) {
     <template #loading>
       正在载入设置…
     </template>
+
+    <section v-if="!settings.onboarding_completed" class="settings-welcome" aria-label="使用提示">
+      <div>
+        <strong>欢迎使用 DeskPal</strong>
+        <p>可拖拽桌宠移动位置，点击打开聊天，悬停可互动；提醒和系统反馈会遵守免打扰时间。自定义角色仅支持受限资源包。</p>
+      </div>
+      <Button size="sm" class="rounded-xl" @click="completeOnboarding">知道了</Button>
+    </section>
 
     <Tabs default-value="display" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
       <TabsList variant="line" class="w-full justify-start border-b border-border/70 bg-transparent p-0">
@@ -207,9 +220,11 @@ function handleScaleValue(value: number[] | undefined) {
           <div class="pr-2">
             <RoleSettingsSection
               :selected-role-id="settings.pet_role"
-              :selected-role="selectedRole"
               :roles="petRoles"
+              :loading="rolePackLoading"
               @update:selected-role="handlePetRoleChange"
+              @import="installRolePack"
+              @remove="removeRolePack"
             />
           </div>
         </ScrollArea>
@@ -227,6 +242,8 @@ function handleScaleValue(value: number[] | undefined) {
               />
 
               <SettingsActionRow wrap align="start">
+                <Button variant="outline" class="rounded-xl" @click="exportPortableSettings">导出可移植设置</Button>
+                <Button variant="outline" class="rounded-xl" @click="importPortableSettings">导入可移植设置</Button>
                 <Button variant="outline" class="rounded-xl" @click="resetPosition">重置桌宠位置</Button>
                 <Button variant="outline" class="rounded-xl" @click="resetSettingsWindowBounds">
                   重置设置窗口位置和大小
@@ -268,3 +285,28 @@ function handleScaleValue(value: number[] | undefined) {
     </Tabs>
   </SettingsShell>
 </template>
+
+<style scoped>
+.settings-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--background));
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border-radius: 14px;
+}
+
+.settings-welcome strong {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.settings-welcome p {
+  margin: 3px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 18px;
+}
+</style>

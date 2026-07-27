@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Emitter, State};
 
 use crate::{
-    parse_chat_shortcut, reminder,
+    parse_chat_shortcut, reminder, role_packs,
     settings::{
         AppSettings, InfoMode, QuietHours, Reminder, ReminderInput, SavedPosition,
         SavedWindowBounds, SettingsState,
@@ -11,13 +11,13 @@ use crate::{
 
 const SETTINGS_UPDATED_EVENT: &str = "pet://settings-updated";
 
-fn emit_settings(app: &AppHandle, settings: &AppSettings) {
+pub(super) fn emit_settings(app: &AppHandle, settings: &AppSettings) {
     if let Err(error) = app.emit(SETTINGS_UPDATED_EVENT, settings) {
         eprintln!("无法同步应用设置事件: {error}");
     }
 }
 
-fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
+pub(super) fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
     reminder::sync_from_settings(app)?;
     emit_settings(app, &settings);
     Ok(settings)
@@ -43,7 +43,10 @@ pub fn set_pet_role(
     settings: State<'_, SettingsState>,
     role: String,
 ) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_pet_role(role)?)
+    if !role_packs::is_valid_role(&app, &role) {
+        return Err("未安装或不受支持的角色。".to_string());
+    }
+    finish_update(&app, settings.set_validated_pet_role(role)?)
 }
 
 #[tauri::command]

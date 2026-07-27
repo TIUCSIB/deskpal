@@ -25,7 +25,7 @@ export interface PetPersonality {
   ambientAnimations: Record<Exclude<PetMood, 'warning'>, WeightedChoice<string>[]>
 }
 
-const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
+const PERSONALITIES: Record<string, PetPersonality> = {
   guga: {
     greetings: ['你好呀！有什么我可以帮你的吗？', '咕嘎在这里，今天也一起加油吧！'],
     defaultReplies: [
@@ -125,7 +125,7 @@ const PERSONALITIES: Record<PetRoleId, PetPersonality> = {
 export type PetInteractionKind = 'click' | 'pet'
 
 export function getPetPersonality(roleId: PetRoleId): PetPersonality {
-  return PERSONALITIES[roleId]
+  return PERSONALITIES[roleId] ?? PERSONALITIES.guga
 }
 
 /** 按角色随机取得一次互动短句 */

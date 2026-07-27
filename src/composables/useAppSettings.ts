@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { replaceInstalledPetRoles, type InstalledPetRole } from '@/config/petRoles'
 import {
   DEFAULT_APP_SETTINGS,
   type AppSettings,
@@ -13,7 +14,12 @@ export function useAppSettings() {
   let unlisten: UnlistenFn | null = null
 
   async function loadSettings() {
-    settings.value = await invoke<AppSettings>('load_app_settings')
+    const [loadedSettings, installedRoles] = await Promise.all([
+      invoke<AppSettings>('load_app_settings'),
+      invoke<InstalledPetRole[]>('list_installed_role_packs'),
+    ])
+    replaceInstalledPetRoles(installedRoles)
+    settings.value = loadedSettings
     ready.value = true
     return settings.value
   }

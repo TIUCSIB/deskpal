@@ -73,6 +73,8 @@ export interface SavedWindowBounds {
 }
 
 export interface AppSettings {
+  schema_version: number
+  onboarding_completed: boolean
   main_position: SavedPosition | null
   settings_window_bounds: SavedWindowBounds | null
   pet_scale: number
@@ -104,6 +106,8 @@ export const DEFAULT_QUIET_HOURS: QuietHours = {
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
+  schema_version: 1,
+  onboarding_completed: false,
   main_position: null,
   settings_window_bounds: null,
   pet_scale: DEFAULT_PET_SCALE,
