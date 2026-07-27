@@ -28,6 +28,7 @@ fn default_settings_match_expected_runtime_defaults() {
     assert_eq!(settings.main_position, None);
     assert_eq!(settings.settings_window_bounds, None);
     assert_eq!(settings.pet_scale, DEFAULT_PET_SCALE);
+    assert_eq!(settings.pet_role, DEFAULT_PET_ROLE);
     assert_eq!(settings.info_mode, InfoMode::Auto);
     assert!(!settings.size_locked);
     assert!(settings.shortcut_enabled);
@@ -35,6 +36,16 @@ fn default_settings_match_expected_runtime_defaults() {
     assert!(settings.main_window_always_on_top);
     assert!(!settings.main_window_show_in_taskbar);
     assert_eq!(settings.chat_shortcut, DEFAULT_CHAT_SHORTCUT);
+    assert_eq!(settings.reminder.message, DEFAULT_REMINDER_MESSAGE);
+    assert_eq!(
+        settings.reminder.interval_minutes,
+        DEFAULT_REMINDER_INTERVAL_MINUTES
+    );
+    assert_eq!(
+        settings.reminder.snooze_minutes,
+        DEFAULT_REMINDER_SNOOZE_MINUTES
+    );
+    assert!(!settings.reminder.enabled);
 }
 
 #[test]
@@ -42,16 +53,29 @@ fn reset_all_restores_defaults() {
     let state = test_state("reset-all");
 
     state.set_pet_scale(1.1).expect("set scale");
+    state
+        .set_pet_role("broom-witch".to_string())
+        .expect("set pet role");
     state.set_info_mode(InfoMode::Hidden).expect("set mode");
-    state.set_shortcut_enabled(false).expect("set shortcut state");
-    state.set_chat_shortcut("Ctrl+Shift+P".to_string()).expect("set shortcut");
+    state
+        .set_shortcut_enabled(false)
+        .expect("set shortcut state");
+    state
+        .set_chat_shortcut("Ctrl+Shift+P".to_string())
+        .expect("set shortcut");
+    state.set_reminder_enabled(true).expect("enable reminder");
+    state
+        .set_reminder_message("起来接水".to_string())
+        .expect("set message");
 
     let reset = state.reset_all().expect("reset all");
 
     assert_eq!(reset.pet_scale, DEFAULT_PET_SCALE);
+    assert_eq!(reset.pet_role, DEFAULT_PET_ROLE);
     assert_eq!(reset.info_mode, InfoMode::Auto);
     assert!(reset.shortcut_enabled);
     assert_eq!(reset.chat_shortcut, DEFAULT_CHAT_SHORTCUT);
+    assert_eq!(reset.reminder, ReminderSettings::default());
     let _ = fs::remove_file(state.path);
 }
 
@@ -96,5 +120,36 @@ fn reset_settings_window_bounds_clears_only_window_bounds() {
 
     assert_eq!(updated.settings_window_bounds, None);
     assert_eq!(updated.pet_scale, 1.05);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn invalid_pet_role_falls_back_to_default() {
+    let state = test_state("pet-role-normalize");
+
+    let updated = state
+        .set_pet_role("unknown-role".to_string())
+        .expect("normalize role");
+
+    assert_eq!(updated.pet_role, DEFAULT_PET_ROLE);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn reminder_values_are_normalized_before_persisting() {
+    let state = test_state("reminder-normalize");
+
+    let updated = state
+        .set_reminder_message("   ".to_string())
+        .expect("normalize empty message");
+    assert_eq!(updated.reminder.message, DEFAULT_REMINDER_MESSAGE);
+
+    let updated = state.set_reminder_interval(0).expect("normalize interval");
+    assert_eq!(updated.reminder.interval_minutes, 1);
+
+    let updated = state
+        .set_reminder_snooze_minutes(0)
+        .expect("normalize snooze");
+    assert_eq!(updated.reminder.snooze_minutes, 1);
     let _ = fs::remove_file(state.path);
 }

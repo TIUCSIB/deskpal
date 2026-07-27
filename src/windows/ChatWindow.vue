@@ -74,12 +74,12 @@ onUnmounted(() => {
 @keyframes chat-bubble-pop {
   0% {
     opacity: 0;
-    transform: translateY(14px) scale(0.84);
+    transform: translateY(10px) scale(0.9);
   }
 
-  68% {
+  72% {
     opacity: 1;
-    transform: translateY(-2px) scale(1.035);
+    transform: translateY(-1px) scale(1.015);
   }
 
   100% {

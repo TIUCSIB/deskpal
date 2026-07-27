@@ -1,9 +1,40 @@
 <script setup lang="ts">
 /**
  * SettingsWindow.vue - 托盘设置窗口
- * 使用独立 composable 管理设置交互与窗口状态。
+ * 使用 shadcn-vue 基础组件重构设置面板。
  */
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import ReminderSettingsSection from '@/components/settings/ReminderSettingsSection.vue'
+import RoleSettingsSection from '@/components/settings/RoleSettingsSection.vue'
+import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
+import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsShell from '@/components/settings/SettingsShell.vue'
+import SettingsToggleRow from '@/components/settings/SettingsToggleRow.vue'
 import { useSettingsWindow } from '@/composables/useSettingsWindow'
+import type { InfoMode } from '@/types/settings'
 
 const {
   settings,
@@ -11,7 +42,6 @@ const {
   scaleText,
   shortcutDraft,
   shortcutSummary,
-  feedbackText,
   infoModeOptions,
   closeWindow,
   handleInfoModeChange,
@@ -27,399 +57,239 @@ const {
   resetPosition,
   resetSettingsWindowBounds,
   resetAllSettings,
+  intervalOptions,
+  snoozeOptions,
+  reminderMessageDraft,
+  handleReminderEnabledChange,
+  handleReminderIntervalChange,
+  handleReminderSnoozeChange,
+  handleReminderDraftInput,
+  applyReminderMessage,
+  previewReminder,
+  petRoles,
+  selectedRole,
+  handlePetRoleChange,
 } = useSettingsWindow()
+
+const INFO_MODE_ID = 'settings-info-mode'
+const SCALE_ID = 'settings-pet-scale'
+const SHORTCUT_ID = 'settings-shortcut'
+
+function handleInfoModeValue(value: string) {
+  handleInfoModeChange(value as InfoMode)
+}
+
+function handleScaleValue(value: number[] | undefined) {
+  handleScaleChange(value?.[0] ?? settings.value.pet_scale)
+}
 </script>
 
 <template>
-  <main class="settings-window">
-    <section v-if="ready" class="settings-window__panel" aria-label="设置">
-      <header class="settings-window__header" data-tauri-drag-region>
-        <div class="settings-window__heading">
-          <h1 class="settings-window__title">设置</h1>
-        </div>
-        <button
-          class="settings-window__close"
-          type="button"
-          title="关闭"
-          data-tauri-drag-region="false"
-          @click="closeWindow"
-        >
-          ×
-        </button>
-      </header>
+  <SettingsShell :ready="ready" title="设置" @close="closeWindow">
+    <template #loading>
+      正在载入设置…
+    </template>
 
-      <div class="settings-window__content">
-        <section class="settings-window__section">
-          <div class="settings-window__section-title">显示</div>
-          <label class="settings-window__field">
-            <span class="settings-window__label">信息窗模式</span>
-            <select class="settings-window__select" :value="settings.info_mode" @change="handleInfoModeChange">
-              <option v-for="option in infoModeOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-          </label>
-          <label class="settings-window__toggle">
-            <input
-              class="settings-window__checkbox"
-              type="checkbox"
-              :checked="settings.main_window_always_on_top"
-              @change="handleAlwaysOnTopChange"
-            />
-            <span>桌宠窗口置顶</span>
-          </label>
-          <label class="settings-window__toggle">
-            <input
-              class="settings-window__checkbox"
-              type="checkbox"
-              :checked="settings.main_window_show_in_taskbar"
-              @change="handleTaskbarChange"
-            />
-            <span>在任务栏显示</span>
-          </label>
-        </section>
+    <Tabs default-value="display" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
+      <TabsList variant="line" class="w-full justify-start border-b border-border/70 bg-transparent p-0">
+        <TabsTrigger value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
+        <TabsTrigger value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
+        <TabsTrigger value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
+        <TabsTrigger value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
+        <TabsTrigger value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
+        <TabsTrigger value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
+      </TabsList>
 
-        <section class="settings-window__section">
-          <div class="settings-window__section-title">大小</div>
-          <label class="settings-window__field">
-            <div class="settings-window__row-header">
-              <span class="settings-window__label">宠物缩放</span>
-              <strong class="settings-window__scale-value">{{ scaleText }}</strong>
-            </div>
-            <input
-              class="settings-window__range"
-              type="range"
-              min="0.45"
-              max="1.2"
-              step="0.05"
-              :value="settings.pet_scale"
-              @change="handleScaleChange"
-            />
-          </label>
-          <label class="settings-window__toggle settings-window__toggle--top-gap">
-            <input
-              class="settings-window__checkbox"
-              type="checkbox"
-              :checked="settings.size_locked"
-              @change="handleSizeLockedChange"
-            />
-            <span>锁定大小</span>
-          </label>
-          <div class="settings-window__actions settings-window__actions--inline">
-            <button class="settings-window__button" type="button" @click="restoreDefaultScale">
-              恢复默认大小
-            </button>
-          </div>
-        </section>
+      <TabsContent value="display" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <SettingsSection title="显示">
+              <div class="grid gap-2">
+                <Label :for="INFO_MODE_ID" class="text-sm leading-5 text-foreground">信息窗模式</Label>
+                <Select :model-value="settings.info_mode" @update:model-value="(value) => value && handleInfoModeValue(String(value))">
+                  <SelectTrigger :id="INFO_MODE_ID" class="h-10 w-full rounded-xl bg-background/70">
+                    <SelectValue placeholder="请选择信息窗模式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="option in infoModeOptions" :key="option.value" :value="option.value">
+                      {{ option.label }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-        <section class="settings-window__section">
-          <div class="settings-window__section-title">快捷键</div>
-          <label class="settings-window__toggle">
-            <input
-              class="settings-window__checkbox"
-              type="checkbox"
-              :checked="settings.shortcut_enabled"
-              @change="handleShortcutEnabledChange"
-            />
-            <span>启用聊天快捷键</span>
-          </label>
-          <label class="settings-window__field settings-window__field--top-gap">
-            <span class="settings-window__label">快捷键组合</span>
-            <div class="settings-window__shortcut-row">
-              <input
-                class="settings-window__input"
-                type="text"
-                :value="shortcutDraft"
-                placeholder="例如 Ctrl+Alt+D"
-                @input="handleShortcutDraftInput"
+              <SettingsToggleRow
+                id="settings-always-on-top"
+                label="桌宠窗口置顶"
+                :checked="settings.main_window_always_on_top"
+                @update:checked="handleAlwaysOnTopChange"
               />
-              <button class="settings-window__button settings-window__button--primary" type="button" @click="applyShortcut">
-                应用
-              </button>
-            </div>
-          </label>
-          <p class="settings-window__hint">
-            支持写法示例：Ctrl+Alt+D、Shift+F1、Command+Option+D
-          </p>
-          <p class="settings-window__hint">{{ shortcutSummary }}</p>
-        </section>
-
-        <section class="settings-window__section">
-          <div class="settings-window__section-title">系统</div>
-          <label class="settings-window__toggle">
-            <input
-              class="settings-window__checkbox"
-              type="checkbox"
-              :checked="settings.launch_at_startup"
-              @change="handleLaunchAtStartupChange"
-            />
-            <span>开机自动启动</span>
-          </label>
-          <div class="settings-window__actions settings-window__actions--wrap">
-            <button class="settings-window__button" type="button" @click="resetPosition">
-              重置桌宠位置
-            </button>
-            <button class="settings-window__button" type="button" @click="resetSettingsWindowBounds">
-              重置设置窗口位置和大小
-            </button>
-            <button
-              class="settings-window__button settings-window__button--danger"
-              type="button"
-              @click="resetAllSettings"
-            >
-              恢复全部默认设置
-            </button>
+              <SettingsToggleRow
+                id="settings-show-taskbar"
+                label="在任务栏显示"
+                :checked="settings.main_window_show_in_taskbar"
+                @update:checked="handleTaskbarChange"
+              />
+            </SettingsSection>
           </div>
-        </section>
-      </div>
+        </ScrollArea>
+      </TabsContent>
 
-      <p v-if="feedbackText" class="settings-window__feedback">{{ feedbackText }}</p>
-    </section>
+      <TabsContent value="size" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <SettingsSection title="大小">
+              <div class="grid gap-3">
+                <div class="flex items-center justify-between gap-3">
+                  <Label :for="SCALE_ID" class="text-sm leading-5 text-foreground">宠物缩放</Label>
+                  <strong class="text-sm font-semibold text-foreground">{{ scaleText }}</strong>
+                </div>
+                <Slider
+                  :id="SCALE_ID"
+                  :model-value="[settings.pet_scale]"
+                  :min="0.45"
+                  :max="1.2"
+                  :step="0.05"
+                  @update:model-value="handleScaleValue"
+                />
+              </div>
 
-    <div v-else class="settings-window__loading">正在载入设置…</div>
-  </main>
+              <SettingsToggleRow
+                id="settings-size-locked"
+                label="锁定大小"
+                description="开启后将不再响应滚轮缩放。"
+                :checked="settings.size_locked"
+                @update:checked="handleSizeLockedChange"
+              />
+
+              <SettingsActionRow align="start">
+                <Button variant="outline" class="rounded-xl" @click="restoreDefaultScale">
+                  恢复默认大小
+                </Button>
+              </SettingsActionRow>
+            </SettingsSection>
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="shortcut" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <SettingsSection title="快捷键">
+              <SettingsToggleRow
+                id="settings-shortcut-enabled"
+                label="启用聊天快捷键"
+                :checked="settings.shortcut_enabled"
+                @update:checked="handleShortcutEnabledChange"
+              />
+
+              <div class="grid gap-2">
+                <Label :for="SHORTCUT_ID" class="text-sm leading-5 text-foreground">快捷键组合</Label>
+                <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <Input
+                    :id="SHORTCUT_ID"
+                    :model-value="shortcutDraft"
+                    class="h-10 rounded-xl bg-background/70"
+                    placeholder="例如 Ctrl+Alt+D"
+                    @update:model-value="(value) => handleShortcutDraftInput(String(value))"
+                  />
+                  <Button class="h-10 rounded-xl px-4" @click="applyShortcut">应用</Button>
+                </div>
+              </div>
+
+              <div class="grid gap-1 text-xs leading-5 text-muted-foreground">
+                <p>支持写法示例：Ctrl+Alt+D、Shift+F1、Command+Option+D</p>
+                <p>{{ shortcutSummary }}</p>
+              </div>
+            </SettingsSection>
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="reminder" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <ReminderSettingsSection
+              :enabled="settings.reminder.enabled"
+              :message-draft="reminderMessageDraft"
+              :interval-minutes="settings.reminder.interval_minutes"
+              :snooze-minutes="settings.reminder.snooze_minutes"
+              :interval-options="intervalOptions"
+              :snooze-options="snoozeOptions"
+              @update:enabled="handleReminderEnabledChange"
+              @update:message-draft="handleReminderDraftInput"
+              @apply-message="applyReminderMessage"
+              @update:interval="handleReminderIntervalChange"
+              @update:snooze="handleReminderSnoozeChange"
+              @preview="previewReminder"
+            />
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="role" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <RoleSettingsSection
+              :selected-role-id="settings.pet_role"
+              :selected-role="selectedRole"
+              :roles="petRoles"
+              @update:selected-role="handlePetRoleChange"
+            />
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="system" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <SettingsSection title="系统">
+              <SettingsToggleRow
+                id="settings-launch-at-startup"
+                label="开机自动启动"
+                :checked="settings.launch_at_startup"
+                @update:checked="handleLaunchAtStartupChange"
+              />
+
+              <SettingsActionRow wrap align="start">
+                <Button variant="outline" class="rounded-xl" @click="resetPosition">重置桌宠位置</Button>
+                <Button variant="outline" class="rounded-xl" @click="resetSettingsWindowBounds">
+                  重置设置窗口位置和大小
+                </Button>
+
+                <AlertDialog>
+                  <AlertDialogTrigger as-child>
+                    <Button
+                      variant="destructive"
+                      class="rounded-xl border-destructive/30 bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                    >
+                      恢复全部默认设置
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确定要恢复全部默认设置吗？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        这会重置桌宠位置、大小、快捷键、提醒和设置窗口布局。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        class="border-destructive/30 bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                        @click="resetAllSettings"
+                      >
+                        确认恢复
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </SettingsActionRow>
+            </SettingsSection>
+          </div>
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
+  </SettingsShell>
 </template>
-
-<style scoped>
-.settings-window {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  padding: 12px;
-  background: transparent;
-}
-
-.settings-window__panel {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px;
-  color: #1c1c1e;
-  background: rgba(247, 247, 250, 0.98);
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 18px;
-}
-
-.settings-window__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 0;
-}
-
-.settings-window__title {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.1;
-  font-weight: 700;
-}
-
-.settings-window__close {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  color: #636366;
-  background: #ededf3;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
-}
-
-.settings-window__content {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  display: grid;
-  gap: 12px;
-  padding-right: 4px;
-}
-
-.settings-window__content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.settings-window__content::-webkit-scrollbar-thumb {
-  background: rgba(60, 60, 67, 0.18);
-  border-radius: 999px;
-}
-
-.settings-window__section {
-  padding: 14px;
-  background: #fff;
-  border: 1px solid #e5e5ea;
-  border-radius: 14px;
-}
-
-.settings-window__section-title {
-  margin-bottom: 12px;
-  color: #8e8e93;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.settings-window__field {
-  display: grid;
-  gap: 8px;
-}
-
-.settings-window__field--top-gap {
-  margin-top: 12px;
-}
-
-.settings-window__label {
-  color: #48484a;
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.settings-window__row-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.settings-window__select,
-.settings-window__input {
-  width: 100%;
-  height: 40px;
-  box-sizing: border-box;
-  padding: 0 12px;
-  color: #1c1c1e;
-  background: #f7f7fa;
-  border: 1px solid #d9d9df;
-  border-radius: 12px;
-  font-size: 14px;
-}
-
-.settings-window__shortcut-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-
-.settings-window__range {
-  width: 100%;
-}
-
-.settings-window__scale-value {
-  min-width: 48px;
-  color: #3a3a3c;
-  font-size: 15px;
-  line-height: 1;
-  text-align: right;
-}
-
-.settings-window__toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #1c1c1e;
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-.settings-window__toggle + .settings-window__toggle {
-  margin-top: 10px;
-}
-
-.settings-window__toggle--top-gap {
-  margin-top: 12px;
-}
-
-.settings-window__checkbox {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  flex: none;
-}
-
-.settings-window__hint,
-.settings-window__feedback {
-  margin: 10px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.settings-window__hint {
-  color: #8e8e93;
-}
-
-.settings-window__feedback {
-  margin: 0;
-  padding: 10px 12px;
-  color: #3a3a3c;
-  background: #f1f1f5;
-  border-radius: 12px;
-}
-
-.settings-window__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.settings-window__actions--inline {
-  justify-content: flex-start;
-}
-
-.settings-window__actions--wrap {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-}
-
-.settings-window__button {
-  min-width: 96px;
-  height: 36px;
-  padding: 0 14px;
-  color: #1c1c1e;
-  background: #f2f2f7;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.settings-window__button--primary {
-  color: #fff;
-  background: #007aff;
-}
-
-.settings-window__button--danger {
-  color: #fff;
-  background: #ff3b30;
-}
-
-.settings-window__button:hover,
-.settings-window__close:hover {
-  background: #e6e6ec;
-}
-
-.settings-window__button--primary:hover {
-  background: #0a6fe8;
-}
-
-.settings-window__button--danger:hover {
-  background: #e0352b;
-}
-
-.settings-window__loading {
-  width: 100%;
-  padding: 18px 20px;
-  color: #8e8e93;
-  background: #ffffff;
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 14px;
-  font-size: 14px;
-}
-</style>

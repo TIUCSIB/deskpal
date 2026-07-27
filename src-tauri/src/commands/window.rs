@@ -1,6 +1,9 @@
 use tauri::AppHandle;
 
-use crate::windowing;
+use crate::{
+    reminder::{self, ReminderPayload},
+    windowing,
+};
 
 #[tauri::command]
 pub fn resize_main_window(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
@@ -25,6 +28,31 @@ pub fn hide_chat_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn hide_settings_window(app: AppHandle) -> Result<(), String> {
     windowing::hide_settings_window(&app)
+}
+
+#[tauri::command]
+pub fn hide_reminder_window(app: AppHandle) -> Result<(), String> {
+    windowing::hide_reminder_window(&app)
+}
+
+#[tauri::command]
+pub fn active_reminder_payload(app: AppHandle) -> Result<Option<ReminderPayload>, String> {
+    reminder::active_payload(&app)
+}
+
+#[tauri::command]
+pub fn dismiss_reminder_window(app: AppHandle) -> Result<(), String> {
+    reminder::dismiss(&app)
+}
+
+#[tauri::command]
+pub fn snooze_reminder(app: AppHandle) -> Result<(), String> {
+    reminder::snooze(&app)
+}
+
+#[tauri::command]
+pub fn preview_reminder_window(app: AppHandle) -> Result<(), String> {
+    reminder::preview(&app)
 }
 
 #[tauri::command]

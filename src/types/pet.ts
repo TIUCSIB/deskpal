@@ -1,7 +1,9 @@
 /**
  * pet.ts - 精灵表宠物类型定义
- * 定义咕嘎（Guga）的精灵表动画配置
+ * 定义内置桌宠角色和精灵表动画配置。
  */
+
+export type PetRoleId = 'guga' | 'monthly-salary-cat' | 'broom-witch'
 
 /** 单个动画定义 */
 export interface PetAnimation {
@@ -33,10 +35,7 @@ export interface PetSpritesheet {
   rowGap: number
   /** 可用动画列表 */
   animations: PetAnimation[]
-  /**
-   * 帧内裁剪配置（px），去除角色周围透明留白
-   * 使点击区域紧贴角色，而非整个帧
-   */
+  /** 帧内裁剪配置（px），去除角色周围透明留白 */
   crop?: {
     /** 左侧裁剪像素 */
     left: number
@@ -47,6 +46,15 @@ export interface PetSpritesheet {
     /** 底部裁剪像素 */
     bottom: number
   }
+}
+
+export interface PetRole {
+  id: PetRoleId
+  displayName: string
+  description: string
+  kind?: string
+  spritesheetUrl: string
+  spritesheet: PetSpritesheet
 }
 
 /** 心情 → 动画名称映射 */

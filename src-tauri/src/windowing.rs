@@ -3,9 +3,12 @@ mod state;
 
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition};
 
-use crate::settings::{
-    AppSettings, InfoMode, SettingsState, DEFAULT_SETTINGS_WINDOW_HEIGHT,
-    DEFAULT_SETTINGS_WINDOW_WIDTH,
+use crate::{
+    reminder::ReminderState,
+    settings::{
+        AppSettings, InfoMode, SettingsState, DEFAULT_SETTINGS_WINDOW_HEIGHT,
+        DEFAULT_SETTINGS_WINDOW_WIDTH,
+    },
 };
 use placement::{
     anchored_resize_position, chat_position, current_work_area, default_main_position,
@@ -17,6 +20,7 @@ pub const MAIN_WINDOW: &str = "main";
 pub const CHAT_WINDOW: &str = "chat";
 pub const INFO_WINDOW: &str = "info";
 pub const SETTINGS_WINDOW: &str = "settings";
+pub const REMINDER_WINDOW: &str = "reminder";
 
 const INFO_BASE_WIDTH: f64 = 240.0;
 const INFO_BASE_HEIGHT: f64 = 144.0;
@@ -42,6 +46,13 @@ fn info_requested_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+fn reminder_active(app: &AppHandle) -> bool {
+    app.try_state::<ReminderState>()
+        .and_then(|state| state.active_payload().ok())
+        .flatten()
+        .is_some()
+}
+
 pub fn clamp_scale(scale: f64) -> f64 {
     if scale.is_finite() {
         scale.clamp(MIN_PET_SCALE, MAX_PET_SCALE)
@@ -62,8 +73,12 @@ pub fn resize_main_window(app: &AppHandle, width: f64, height: f64) -> Result<()
     let area = current_work_area(&window).map_err(|error| error.to_string())?;
     let new_position = anchored_resize_position(old_position, old_size, new_size, area);
 
-    window.set_size(logical_size).map_err(|error| error.to_string())?;
-    window.set_position(new_position).map_err(|error| error.to_string())?;
+    window
+        .set_size(logical_size)
+        .map_err(|error| error.to_string())?;
+    window
+        .set_position(new_position)
+        .map_err(|error| error.to_string())?;
     reposition_visible_overlays(app);
     Ok(())
 }
@@ -98,7 +113,9 @@ pub fn restore_main_window_position(
         .map(|saved| placement::clamp_position(saved.x, saved.y, size, area))
         .unwrap_or_else(|| default_main_position(size, area));
 
-    window.set_position(position).map_err(|error| error.to_string())?;
+    window
+        .set_position(position)
+        .map_err(|error| error.to_string())?;
     reposition_visible_overlays(app);
     Ok(())
 }
@@ -142,6 +159,7 @@ pub fn show_main_window(app: &AppHandle) -> Result<(), String> {
     window.show().map_err(|error| error.to_string())?;
     reposition_visible_overlays(app);
     sync_info_window_visibility(app)?;
+    sync_reminder_window_visibility(app)?;
     window.set_focus().map_err(|error| error.to_string())
 }
 
@@ -161,6 +179,13 @@ pub fn hide_settings_window(app: &AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+pub fn hide_reminder_window(app: &AppHandle) -> Result<(), String> {
+    app.get_webview_window(REMINDER_WINDOW)
+        .ok_or_else(|| "找不到提醒窗口".to_string())?
+        .hide()
+        .map_err(|error| error.to_string())
+}
+
 fn position_overlay(app: &AppHandle, label: &str) -> Result<(), String> {
     let main = app
         .get_webview_window(MAIN_WINDOW)
@@ -173,22 +198,27 @@ fn position_overlay(app: &AppHandle, label: &str) -> Result<(), String> {
     let overlay_size = overlay.outer_size().map_err(|error| error.to_string())?;
     let area = current_work_area(&main).map_err(|error| error.to_string())?;
     let position = match label {
-        CHAT_WINDOW => chat_position(main_position, main_size, overlay_size, area),
+        CHAT_WINDOW | REMINDER_WINDOW => {
+            chat_position(main_position, main_size, overlay_size, area)
+        }
         INFO_WINDOW => info_position(main_position, main_size, overlay_size, area),
         _ => return Err(format!("不支持定位窗口 {label}")),
     };
-    overlay.set_position(position).map_err(|error| error.to_string())
+    overlay
+        .set_position(position)
+        .map_err(|error| error.to_string())
 }
 
 pub fn reposition_visible_overlays(app: &AppHandle) {
-    for label in [CHAT_WINDOW, INFO_WINDOW] {
+    for label in [CHAT_WINDOW, INFO_WINDOW, REMINDER_WINDOW] {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
-        if window.is_visible().unwrap_or(false) {
-            if let Err(error) = position_overlay(app, label) {
-                eprintln!("无法重新定位 {label} 窗口: {error}");
-            }
+        if !window.is_visible().unwrap_or(false) {
+            continue;
+        }
+        if let Err(error) = position_overlay(app, label) {
+            eprintln!("无法重新定位 {label} 窗口: {error}");
         }
     }
 }
@@ -201,12 +231,14 @@ pub fn toggle_chat_window(app: &AppHandle) -> Result<(), String> {
     if window.is_visible().map_err(|error| error.to_string())? {
         window.hide().map_err(|error| error.to_string())?;
         sync_info_window_visibility(app)?;
+        sync_reminder_window_visibility(app)?;
         return Ok(());
     }
 
     position_overlay(app, CHAT_WINDOW)?;
     window.show().map_err(|error| error.to_string())?;
     sync_info_window_visibility(app)?;
+    sync_reminder_window_visibility(app)?;
     window.set_focus().map_err(|error| error.to_string())?;
     window
         .emit("chat://focus-input", ())
@@ -218,7 +250,8 @@ pub fn hide_chat_window(app: &AppHandle) -> Result<(), String> {
         .ok_or_else(|| "找不到聊天窗口".to_string())?
         .hide()
         .map_err(|error| error.to_string())?;
-    sync_info_window_visibility(app)
+    sync_info_window_visibility(app)?;
+    sync_reminder_window_visibility(app)
 }
 
 pub fn request_info_window_visibility(app: &AppHandle, visible: bool) -> Result<(), String> {
@@ -244,6 +277,18 @@ pub fn sync_info_window_visibility(app: &AppHandle) -> Result<(), String> {
 
     position_overlay(app, INFO_WINDOW)?;
     window.show().map_err(|error| error.to_string())
+}
+
+pub fn sync_reminder_window_visibility(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(REMINDER_WINDOW)
+        .ok_or_else(|| "找不到提醒窗口".to_string())?;
+    if !reminder_active(app) || chat_window_visible(app) {
+        return window.hide().map_err(|error| error.to_string());
+    }
+    position_overlay(app, REMINDER_WINDOW)?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

@@ -121,25 +121,10 @@ defineExpose({ focusInput, resetSession })
 
 <style scoped>
 .chat-bubble {
-  position: relative;
   width: 232px;
   max-width: 100%;
   color: #1c1c1e;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.14));
   pointer-events: auto;
-}
-
-.chat-bubble::after {
-  position: absolute;
-  right: 34px;
-  bottom: -4px;
-  width: 12px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.97);
-  border-right: 1px solid rgba(60, 60, 67, 0.16);
-  border-bottom: 1px solid rgba(60, 60, 67, 0.16);
-  content: '';
-  transform: rotate(45deg) scale(0.92);
 }
 
 .chat-bubble__surface {

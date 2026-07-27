@@ -1,4 +1,5 @@
 mod commands;
+mod reminder;
 mod settings;
 mod tray;
 mod windowing;
@@ -22,18 +23,17 @@ pub(crate) fn sync_chat_shortcut(
     enabled: bool,
 ) -> Result<bool, String> {
     let manager = app.global_shortcut();
-    manager.unregister_all().map_err(|error| error.to_string())?;
-
+    manager
+        .unregister_all()
+        .map_err(|error| error.to_string())?;
     if !enabled {
         return Ok(false);
     }
-
     let shortcut = parse_chat_shortcut(shortcut)?;
     match manager.on_shortcut(shortcut, |app, _shortcut, event| {
-        if event.state != ShortcutState::Pressed {
-            return;
+        if event.state == ShortcutState::Pressed {
+            let _ = windowing::toggle_chat_window(app);
         }
-        let _ = windowing::toggle_chat_window(app);
     }) {
         Ok(()) => Ok(true),
         Err(error) => {
@@ -61,6 +61,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(system_info::SystemMonitor::new())
         .manage(windowing::OverlayState::default())
+        .manage(reminder::ReminderState::default())
         .plugin(GlobalShortcutBuilder::new().build())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
@@ -74,9 +75,15 @@ pub fn run() {
             window::toggle_chat_window,
             window::hide_chat_window,
             window::hide_settings_window,
+            window::hide_reminder_window,
+            window::active_reminder_payload,
+            window::dismiss_reminder_window,
+            window::snooze_reminder,
+            window::preview_reminder_window,
             window::set_info_window_visible,
             settings_commands::load_app_settings,
             settings_commands::save_pet_scale,
+            settings_commands::set_pet_role,
             settings_commands::save_main_window_position,
             settings_commands::save_settings_window_bounds,
             settings_commands::set_info_mode,
@@ -86,6 +93,10 @@ pub fn run() {
             settings_commands::set_launch_at_startup,
             settings_commands::set_main_window_always_on_top,
             settings_commands::set_main_window_show_in_taskbar,
+            settings_commands::set_reminder_enabled,
+            settings_commands::set_reminder_message,
+            settings_commands::set_reminder_interval,
+            settings_commands::set_reminder_snooze_minutes,
             settings_commands::reset_main_window_position,
             settings_commands::reset_settings_window_bounds,
             settings_commands::reset_all_settings,
@@ -101,6 +112,7 @@ pub fn run() {
                     windowing::MAIN_WINDOW,
                     windowing::CHAT_WINDOW,
                     windowing::INFO_WINDOW,
+                    windowing::REMINDER_WINDOW,
                     windowing::SETTINGS_WINDOW,
                 ] {
                     if let Some(window) = app.get_webview_window(label) {
@@ -111,7 +123,6 @@ pub fn run() {
                         }
                     }
                 }
-
                 if let Some(info) = app.get_webview_window(windowing::INFO_WINDOW) {
                     if let Err(error) = info.set_ignore_cursor_events(true) {
                         eprintln!("无法设置系统信息窗口点击穿透: {error}");
@@ -125,7 +136,6 @@ pub fn run() {
                     initial_settings = settings.set_launch_at_startup(false)?;
                 }
             }
-
             windowing::apply_main_window_settings(&app.handle(), &initial_settings)?;
             if !sync_chat_shortcut(
                 &app.handle(),
@@ -143,7 +153,10 @@ pub fn run() {
                 &app.handle(),
                 initial_settings.main_position.map(Into::into),
             )?;
+            reminder::sync_from_settings(&app.handle())?;
+            reminder::start_scheduler(app.handle().clone());
             windowing::sync_info_window_visibility(&app.handle())?;
+            windowing::sync_reminder_window_visibility(&app.handle())?;
 
             if let Some(main) = app.get_webview_window(windowing::MAIN_WINDOW) {
                 let app_handle = app.handle().clone();
@@ -154,7 +167,8 @@ pub fn run() {
                     ) {
                         windowing::reposition_visible_overlays(&app_handle);
                         if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
-                            if let Some(window) = app_handle.get_webview_window(windowing::MAIN_WINDOW)
+                            if let Some(window) =
+                                app_handle.get_webview_window(windowing::MAIN_WINDOW)
                             {
                                 if let Ok(position) = window.outer_position() {
                                     let _ = settings.save_main_position_throttled(position.into());

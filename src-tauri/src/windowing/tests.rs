@@ -1,6 +1,4 @@
-use super::placement::{
-    anchored_resize_position, chat_position, info_position, Bounds,
-};
+use super::placement::{anchored_resize_position, chat_position, info_position, Bounds};
 use super::{clamp_scale, MAX_PET_SCALE, MIN_PET_SCALE};
 use tauri::{PhysicalPosition, PhysicalSize};
 
