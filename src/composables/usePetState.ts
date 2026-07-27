@@ -1,38 +1,22 @@
 import { ref } from 'vue'
 import type { SystemInfo, PetMood } from '@/types/system'
 
-/**
- * 桌宠状态管理
- * 根据系统指标和时间自动切换心情
- */
+/** 根据系统指标和小时数推导宠物心情 */
+export function derivePetMood(info: SystemInfo, hour: number): PetMood {
+  if (info.cpu_usage > 80 || info.memory_usage > 85) return 'warning'
+  if (hour >= 0 && hour < 6) return 'sleepy'
+  if (info.cpu_usage < 30 && info.memory_usage < 50) return 'happy'
+  return 'normal'
+}
+
+/** usePetState - 根据系统状态维护宠物心情 */
 export function usePetState() {
   const mood = ref<PetMood>('normal')
 
-  /** 根据系统信息更新心情 */
+  /** 根据当前系统信息更新心情 */
   function updateMood(info: SystemInfo | null) {
     if (!info) return
-
-    // 系统压力大 → warning
-    if (info.cpu_usage > 80 || info.memory_usage > 85) {
-      mood.value = 'warning'
-      return
-    }
-
-    // 深夜时段 → sleepy
-    const hour = new Date().getHours()
-    if (hour >= 0 && hour < 6) {
-      mood.value = 'sleepy'
-      return
-    }
-
-    // 轻度负载 → happy
-    if (info.cpu_usage < 30 && info.memory_usage < 50) {
-      mood.value = 'happy'
-      return
-    }
-
-    // 其他情况 → normal
-    mood.value = 'normal'
+    mood.value = derivePetMood(info, new Date().getHours())
   }
 
   return { mood, updateMood }

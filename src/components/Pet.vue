@@ -6,13 +6,13 @@
 import { computed, watch } from 'vue'
 import { DEFAULT_PET_ROLE, getPetRole } from '@/config/petRoles'
 import type { PetRoleId } from '@/types/pet'
-import type { PetMood } from '@/types/system'
 import { useSpriteAnimation } from '@/composables/useSpriteAnimation'
 import { usePixelHitTest } from '@/composables/usePixelHitTest'
 
 const props = withDefaults(
   defineProps<{
-    mood: PetMood
+    animationName: string
+    animationRevision?: number
     roleId?: PetRoleId
     sizeLocked?: boolean
   }>(),
@@ -38,7 +38,6 @@ const {
   frameWidth,
   frameHeight,
   sizeScale,
-  setMoodPool,
   setSizeScale,
   playNamedAnimation,
 } = useSpriteAnimation(role)
@@ -51,9 +50,9 @@ const { hitTest } = usePixelHitTest(
 let hoveringPetPixel = false
 
 watch(
-  () => props.mood,
-  (mood) => {
-    setMoodPool(mood)
+  () => [props.animationName, props.animationRevision] as const,
+  ([animationName]) => {
+    playNamedAnimation(animationName)
   },
   { immediate: true },
 )

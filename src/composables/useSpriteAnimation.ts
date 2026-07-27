@@ -4,18 +4,10 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { PetRole } from '@/types/pet'
-import type { PetMood } from '@/types/system'
 import type { PetAnimation, PetSpritesheet } from '@/types/pet'
 
 export const MIN_PET_SCALE = 0.45
 export const MAX_PET_SCALE = 1.2
-
-const MOOD_POOLS: Record<PetMood, string[]> = {
-  happy: ['Idle', 'Review', 'RunRight', 'RunLeft', 'Waiting'],
-  normal: ['Idle', 'Review', 'RunRight', 'RunLeft', 'Waiting', 'Running'],
-  sleepy: ['Waiting', 'Idle', 'Review'],
-  warning: ['Failed', 'Running', 'Review', 'Idle'],
-}
 
 function getFallbackAnimation(sheet: PetSpritesheet) {
   return sheet.animations[0]!
@@ -41,7 +33,6 @@ export function useSpriteAnimation(role: { readonly value: PetRole }) {
   const frameIndex = ref(0)
   const backgroundPosition = ref('0px 0px')
   const sizeScale = ref(1)
-  const animationPool = ref<string[]>([...MOOD_POOLS.normal])
 
   let animFrameId = 0
   let lastFrameTime = 0
@@ -67,15 +58,6 @@ export function useSpriteAnimation(role: { readonly value: PetRole }) {
   function playNamedAnimation(name: string) {
     const animation = findAnimation(name)
     if (animation) switchAnimation(animation)
-  }
-
-  /** 根据心情切换常驻动画池 */
-  function setMoodPool(mood: PetMood) {
-    animationPool.value = [...MOOD_POOLS[mood]]
-    if (!animationPool.value.includes(currentAnimation.value.name)) {
-      const next = findAnimation(animationPool.value[0])
-      if (next) switchAnimation(next)
-    }
   }
 
   /** 设置缩放比例 */
@@ -110,7 +92,6 @@ export function useSpriteAnimation(role: { readonly value: PetRole }) {
   })
 
   watch(role, () => {
-    animationPool.value = [...MOOD_POOLS.normal]
     switchAnimation(findAnimation('Idle') ?? getFallbackAnimation(role.value.spritesheet))
   })
 
@@ -148,7 +129,6 @@ export function useSpriteAnimation(role: { readonly value: PetRole }) {
     frameWidth: scaledFrameWidth,
     frameHeight: scaledFrameHeight,
     sizeScale,
-    setMoodPool,
     setSizeScale,
     playNamedAnimation,
   }
