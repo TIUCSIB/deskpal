@@ -1,13 +1,6 @@
 <script setup lang="ts">
-/** RoleSettingsSection.vue - 桌宠角色选择 */
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+/** RoleSettingsSection.vue - 桌宠角色卡片选择 */
+import PetRoleThumbnail from '@/components/settings/PetRoleThumbnail.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import type { PetRole, PetRoleId } from '@/types/pet'
 
@@ -21,40 +14,115 @@ const emit = defineEmits<{
   'update:selected-role': [PetRoleId]
 }>()
 
-const ROLE_ID = 'settings-pet-role'
+/** 返回角色类型的用户可见名称 */
+function formatRoleKind(role: PetRole) {
+  return role.kind === 'person' ? '人物' : '动物'
+}
 </script>
 
 <template>
   <SettingsSection title="角色">
-    <div class="grid gap-2">
-      <Label :for="ROLE_ID" class="text-sm leading-5 text-foreground">
-        当前桌宠
-      </Label>
-      <Select
-        :model-value="props.selectedRoleId"
-        @update:model-value="(value) => value && emit('update:selected-role', value as PetRoleId)"
-      >
-        <SelectTrigger :id="ROLE_ID" class="h-10 w-full rounded-xl bg-background/70">
-          <SelectValue placeholder="请选择桌宠角色" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="role in props.roles" :key="role.id" :value="role.id">
-            {{ role.displayName }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
+    <p class="m-0 text-sm leading-5 text-muted-foreground">
+      选择喜欢的桌宠角色，切换后会立即同步到桌面。
+    </p>
 
-    <div class="grid gap-1 rounded-xl border border-border/70 bg-background/55 px-3 py-3">
-      <div class="flex items-center justify-between gap-3">
-        <strong class="text-sm font-medium text-foreground">{{ props.selectedRole.displayName }}</strong>
-        <span class="text-xs text-muted-foreground">
-          {{ props.selectedRole.kind === 'person' ? '人物' : '动物' }}
+    <div class="role-settings__list" aria-label="桌宠角色列表">
+      <button
+        v-for="role in props.roles"
+        :key="role.id"
+        class="role-settings__card"
+        :class="{ 'role-settings__card--selected': role.id === props.selectedRoleId }"
+        type="button"
+        :aria-pressed="role.id === props.selectedRoleId"
+        @click="emit('update:selected-role', role.id)"
+      >
+        <PetRoleThumbnail :role="role" />
+        <span class="role-settings__content">
+          <span class="role-settings__header">
+            <strong class="role-settings__name">{{ role.displayName }}</strong>
+            <span class="role-settings__kind">{{ formatRoleKind(role) }}</span>
+          </span>
+          <span class="role-settings__description">{{ role.description }}</span>
         </span>
-      </div>
-      <p class="m-0 text-xs leading-5 text-muted-foreground">
-        {{ props.selectedRole.description }}
-      </p>
+      </button>
     </div>
   </SettingsSection>
 </template>
+
+<style scoped>
+.role-settings__list {
+  display: grid;
+  gap: 8px;
+}
+
+.role-settings__card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: inherit;
+  text-align: left;
+  background: color-mix(in srgb, var(--background) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.role-settings__card:hover {
+  background: color-mix(in srgb, var(--primary) 7%, var(--background));
+  border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+  transform: translateY(-1px);
+}
+
+.role-settings__card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.role-settings__card--selected {
+  background: color-mix(in srgb, var(--primary) 11%, var(--background));
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.role-settings__content {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.role-settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.role-settings__name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-settings__kind {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.role-settings__description {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 18px;
+}
+</style>
