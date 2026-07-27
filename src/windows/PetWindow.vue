@@ -13,8 +13,9 @@ import { usePetBehavior } from '@/composables/usePetBehavior'
 import { usePetInteraction } from '@/composables/usePetInteraction'
 import { usePetState } from '@/composables/usePetState'
 import { useSystemInfo } from '@/composables/useSystemInfo'
-import { broadcastPetContext } from '@/composables/useWindowBridge'
+import { broadcastPetContext, sendPetContext } from '@/composables/useWindowBridge'
 import { DEFAULT_PET_SCALE } from '@/types/settings'
+import type { PetContext, PetContextRequest } from '@/types/window'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const { info } = useSystemInfo()
@@ -36,17 +37,24 @@ const {
 const petRef = ref<InstanceType<typeof Pet> | null>(null)
 const sizeLocked = computed(() => settings.value.size_locked)
 let unlistenScale: UnlistenFn | null = null
+let unlistenContextRequest: UnlistenFn | null = null
+let listenersDisposed = false
 let persistScaleTimer: ReturnType<typeof setTimeout> | null = null
 let pendingScale: number | null = null
 
-/** 广播当前宠物状态供浮窗渲染 */
-function broadcastCurrentContext() {
-  return broadcastPetContext({
+/** 获取当前宠物状态供浮窗渲染 */
+function currentPetContext(): PetContext {
+  return {
     info: info.value,
     mood: mood.value,
     roleId: settings.value.pet_role,
     scale: petRef.value?.sizeScale ?? 1,
-  })
+  }
+}
+
+/** 广播当前宠物状态供浮窗渲染 */
+function broadcastCurrentContext() {
+  return broadcastPetContext(currentPetContext())
 }
 
 watch(
@@ -173,17 +181,35 @@ function handleRestoreDefaultSize() {
 }
 
 onMounted(async () => {
+  listenersDisposed = false
+  const [nextUnlistenContextRequest, nextUnlistenScale] = await Promise.all([
+    listen<PetContextRequest>(WINDOW_EVENTS.petContextRequest, (event) => {
+      void sendPetContext(event.payload.recipient, currentPetContext()).catch((error: unknown) => {
+        console.error('回复浮窗状态请求失败:', error)
+      })
+    }),
+    listen<number>(WINDOW_EVENTS.setScale, (event) => {
+      petRef.value?.setSizeScale(event.payload)
+    }),
+  ])
+  if (listenersDisposed) {
+    nextUnlistenContextRequest()
+    nextUnlistenScale()
+    return
+  }
+  unlistenContextRequest = nextUnlistenContextRequest
+  unlistenScale = nextUnlistenScale
+
   const loaded = await loadSettings()
   await nextTick()
   petRef.value?.setSizeScale(loaded.pet_scale)
   setMood(mood.value)
   start()
-  unlistenScale = await listen<number>(WINDOW_EVENTS.setScale, (event) => {
-    petRef.value?.setSizeScale(event.payload)
-  })
 })
 
 onUnmounted(() => {
+  listenersDisposed = true
+  unlistenContextRequest?.()
   unlistenScale?.()
   if (persistScaleTimer) clearTimeout(persistScaleTimer)
   dispose()

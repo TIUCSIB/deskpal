@@ -6,7 +6,7 @@ import { usePetContextReceiver, useReminderPayloadReceiver } from '@/composables
 
 /** useReminderWindow - 提醒浮窗展示与交互 */
 export function useReminderWindow() {
-  const { context } = usePetContextReceiver()
+  const { context } = usePetContextReceiver('reminder')
   const { payload } = useReminderPayloadReceiver()
 
   const message = computed(() => payload.value.message || '记得休息一下～')

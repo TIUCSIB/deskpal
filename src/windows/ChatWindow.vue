@@ -9,7 +9,7 @@ import { useOverlayTransition } from '@/composables/useOverlayTransition'
 import { usePetContextReceiver } from '@/composables/useWindowBridge'
 import { WINDOW_EVENTS } from '@/types/window'
 
-const { context } = usePetContextReceiver()
+const { context } = usePetContextReceiver('chat')
 const { revision, transitionStyle } = useOverlayTransition()
 const chatRef = ref<InstanceType<typeof ChatBubble> | null>(null)
 let unlistenFocusInput: UnlistenFn | null = null

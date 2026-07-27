@@ -10,6 +10,12 @@ export interface PetContext {
   scale: number
 }
 
+export type PetContextRecipient = 'chat' | 'info' | 'reminder'
+
+export interface PetContextRequest {
+  recipient: PetContextRecipient
+}
+
 export interface ReminderPayload {
   reminder_id: string
   message: string
@@ -20,6 +26,7 @@ export type OverlaySide = 'above' | 'below' | 'left' | 'right'
 
 export const WINDOW_EVENTS = {
   petContext: 'pet://context',
+  petContextRequest: 'pet://context-request',
   settingsUpdated: 'pet://settings-updated',
   setScale: 'pet://set-scale',
   focusChatInput: 'chat://focus-input',

@@ -5,7 +5,7 @@ import InfoPanel from '@/components/InfoPanel.vue'
 import { useOverlayTransition } from '@/composables/useOverlayTransition'
 import { usePetContextReceiver } from '@/composables/useWindowBridge'
 
-const { context } = usePetContextReceiver()
+const { context } = usePetContextReceiver('info')
 const { revision, transitionStyle } = useOverlayTransition()
 const INFO_MIN_SCALE = 0.78
 
