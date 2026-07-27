@@ -14,6 +14,7 @@ const INITIAL_CONTEXT: PetContext = {
 }
 
 const INITIAL_REMINDER: ReminderPayload = {
+  reminder_id: '',
   message: '',
   snooze_minutes: 5,
 }

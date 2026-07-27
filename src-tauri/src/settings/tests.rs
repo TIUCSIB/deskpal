@@ -21,6 +21,17 @@ fn test_state(name: &str) -> SettingsState {
     }
 }
 
+fn interval_input(message: &str, minutes: u32) -> ReminderInput {
+    ReminderInput {
+        id: None,
+        message: message.to_string(),
+        schedule: ReminderSchedule::Interval {
+            interval_minutes: minutes,
+        },
+        snooze_minutes: DEFAULT_REMINDER_SNOOZE_MINUTES,
+    }
+}
+
 #[test]
 fn default_settings_match_expected_runtime_defaults() {
     let settings = AppSettings::default();
@@ -36,16 +47,7 @@ fn default_settings_match_expected_runtime_defaults() {
     assert!(settings.main_window_always_on_top);
     assert!(!settings.main_window_show_in_taskbar);
     assert_eq!(settings.chat_shortcut, DEFAULT_CHAT_SHORTCUT);
-    assert_eq!(settings.reminder.message, DEFAULT_REMINDER_MESSAGE);
-    assert_eq!(
-        settings.reminder.interval_minutes,
-        DEFAULT_REMINDER_INTERVAL_MINUTES
-    );
-    assert_eq!(
-        settings.reminder.snooze_minutes,
-        DEFAULT_REMINDER_SNOOZE_MINUTES
-    );
-    assert!(!settings.reminder.enabled);
+    assert!(settings.reminders.is_empty());
 }
 
 #[test]
@@ -63,10 +65,9 @@ fn reset_all_restores_defaults() {
     state
         .set_chat_shortcut("Ctrl+Shift+P".to_string())
         .expect("set shortcut");
-    state.set_reminder_enabled(true).expect("enable reminder");
     state
-        .set_reminder_message("起来接水".to_string())
-        .expect("set message");
+        .create_reminder(interval_input("起来接水", 20))
+        .expect("create reminder");
 
     let reset = state.reset_all().expect("reset all");
 
@@ -75,7 +76,7 @@ fn reset_all_restores_defaults() {
     assert_eq!(reset.info_mode, InfoMode::Auto);
     assert!(reset.shortcut_enabled);
     assert_eq!(reset.chat_shortcut, DEFAULT_CHAT_SHORTCUT);
-    assert_eq!(reset.reminder, ReminderSettings::default());
+    assert!(reset.reminders.is_empty());
     let _ = fs::remove_file(state.path);
 }
 
@@ -136,20 +137,133 @@ fn invalid_pet_role_falls_back_to_default() {
 }
 
 #[test]
-fn reminder_values_are_normalized_before_persisting() {
+fn reminders_normalize_schedule_and_message() {
     let state = test_state("reminder-normalize");
 
-    let updated = state
-        .set_reminder_message("   ".to_string())
-        .expect("normalize empty message");
-    assert_eq!(updated.reminder.message, DEFAULT_REMINDER_MESSAGE);
+    let created = state
+        .create_reminder(ReminderInput {
+            id: Some("daily".to_string()),
+            message: "   ".to_string(),
+            schedule: ReminderSchedule::FixedTime {
+                time: "32:99".to_string(),
+            },
+            snooze_minutes: 0,
+        })
+        .expect("create reminder");
+    let reminder = created.reminders.first().expect("saved reminder");
 
-    let updated = state.set_reminder_interval(0).expect("normalize interval");
-    assert_eq!(updated.reminder.interval_minutes, 1);
-
-    let updated = state
-        .set_reminder_snooze_minutes(0)
-        .expect("normalize snooze");
-    assert_eq!(updated.reminder.snooze_minutes, 1);
+    assert_eq!(reminder.message, DEFAULT_REMINDER_MESSAGE);
+    assert_eq!(reminder.snooze_minutes, 1);
+    assert_eq!(
+        reminder.schedule,
+        ReminderSchedule::FixedTime {
+            time: "09:00".to_string()
+        }
+    );
     let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn updating_and_deleting_reminders_only_affects_target_item() {
+    let state = test_state("reminder-crud");
+    let first = state
+        .create_reminder(interval_input("喝水", 30))
+        .expect("create first")
+        .reminders
+        .into_iter()
+        .next()
+        .expect("first reminder");
+    let second = state
+        .create_reminder(interval_input("起身活动", 45))
+        .expect("create second")
+        .reminders
+        .into_iter()
+        .last()
+        .expect("second reminder");
+
+    let updated = state
+        .update_reminder(Reminder {
+            message: "休息一下".to_string(),
+            ..first.clone()
+        })
+        .expect("update first");
+    assert_eq!(updated.reminders[0].message, "休息一下");
+    assert_eq!(updated.reminders[1].message, second.message);
+
+    let deleted = state
+        .delete_reminder(first.id)
+        .expect("delete first reminder");
+    assert_eq!(deleted.reminders.len(), 1);
+    assert_eq!(deleted.reminders[0].id, second.id);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn creating_duplicate_reminders_assigns_unique_ids() {
+    let state = test_state("reminder-ids");
+
+    state
+        .create_reminder(ReminderInput {
+            id: Some("water".to_string()),
+            ..interval_input("喝水", 30)
+        })
+        .expect("create first reminder");
+    let updated = state
+        .create_reminder(ReminderInput {
+            id: Some("water".to_string()),
+            ..interval_input("休息", 45)
+        })
+        .expect("create second reminder");
+
+    assert_eq!(updated.reminders.len(), 2);
+    assert_eq!(updated.reminders[0].id, "water");
+    assert_eq!(updated.reminders[1].id, "water-2");
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn legacy_single_reminder_migrates_to_list() {
+    let legacy = r#"{
+      "pet_scale": 0.9,
+      "reminder": {
+        "enabled": true,
+        "message": "起来活动",
+        "interval_minutes": 45,
+        "snooze_minutes": 10
+      }
+    }"#;
+    let stored: StoredSettings = serde_json::from_str(legacy).expect("legacy settings parse");
+    let mut settings = migrate_stored_settings(stored, false);
+    settings.reminders = normalize_reminders(settings.reminders);
+
+    assert_eq!(settings.reminders.len(), 1);
+    assert_eq!(settings.reminders[0].id, LEGACY_REMINDER_ID);
+    assert!(settings.reminders[0].enabled);
+    assert_eq!(settings.reminders[0].message, "起来活动");
+    assert_eq!(
+        settings.reminders[0].schedule,
+        ReminderSchedule::Interval {
+            interval_minutes: 45
+        }
+    );
+}
+
+#[test]
+fn current_empty_reminders_list_does_not_restore_legacy_reminder() {
+    let stored: StoredSettings = serde_json::from_str(
+        r#"{
+          "reminders": [],
+          "reminder": {
+            "enabled": true,
+            "message": "旧提醒",
+            "interval_minutes": 30,
+            "snooze_minutes": 5
+          }
+        }"#,
+    )
+    .expect("current settings parse");
+
+    let settings = migrate_stored_settings(stored, true);
+
+    assert!(settings.reminders.is_empty());
 }

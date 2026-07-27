@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   dismiss: []
   snooze: []
+  pauseUntilTomorrow: []
 }>()
 </script>
 
@@ -27,7 +28,14 @@ const emit = defineEmits<{
       </p>
 
       <div class="reminder-bubble__footer">
-        <span class="reminder-bubble__hint">{{ props.snoozeText }}</span>
+        <button
+          class="reminder-bubble__pause"
+          type="button"
+          title="明天再提醒"
+          @click="emit('pauseUntilTomorrow')"
+        >
+          明天再提醒
+        </button>
         <div class="reminder-bubble__actions">
           <button
             class="reminder-bubble__button reminder-bubble__button--secondary"
@@ -35,7 +43,7 @@ const emit = defineEmits<{
             title="稍后提醒"
             @click="emit('snooze')"
           >
-            稍后
+            {{ props.snoozeText }}
           </button>
           <button
             class="reminder-bubble__button reminder-bubble__button--primary"
@@ -110,17 +118,26 @@ const emit = defineEmits<{
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.reminder-bubble__hint {
+.reminder-bubble__pause {
   min-width: 0;
+  justify-self: start;
+  padding: 0;
   overflow: hidden;
   color: #8e8e93;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
   font-size: 11px;
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.reminder-bubble__pause:hover {
+  color: #007aff;
 }
 
 .reminder-bubble__actions {
@@ -142,7 +159,8 @@ const emit = defineEmits<{
 }
 
 .reminder-bubble__button--secondary {
-  width: 44px;
+  min-width: 44px;
+  padding: 0 8px;
   color: #007aff;
   background: #f2f2f7;
 }

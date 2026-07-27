@@ -139,9 +139,6 @@ export function useSettingsWindow() {
 
   const reminderSettings = useReminderSettings(settings, invokeSetting, setFeedback)
   const roleSettings = useRoleSettings(settings, invokeSetting, setFeedback)
-  watch(() => settings.value.reminder.message, () => {
-    reminderSettings.syncDraft()
-  }, { immediate: true })
 
   async function handleInfoModeChange(mode: InfoMode) {
     const updated = await invokeSetting('set_info_mode', { mode })

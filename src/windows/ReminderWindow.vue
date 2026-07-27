@@ -9,6 +9,7 @@ const {
   snoozeText,
   dismissReminder,
   snoozeReminder,
+  pauseUntilTomorrow,
 } = useReminderWindow()
 </script>
 
@@ -20,6 +21,7 @@ const {
       :snooze-text="snoozeText"
       @dismiss="dismissReminder"
       @snooze="snoozeReminder"
+      @pause-until-tomorrow="pauseUntilTomorrow"
     />
   </main>
 </template>

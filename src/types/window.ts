@@ -9,6 +9,7 @@ export interface PetContext {
 }
 
 export interface ReminderPayload {
+  reminder_id: string
   message: string
   snooze_minutes: number
 }

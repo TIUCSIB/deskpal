@@ -1,5 +1,6 @@
 import { computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { toast } from 'vue-sonner'
 import type { ReminderPayload } from '@/types/window'
 import { usePetContextReceiver, useReminderPayloadReceiver } from '@/composables/useWindowBridge'
 
@@ -17,12 +18,25 @@ export function useReminderWindow() {
     if (active) payload.value = active
   }
 
+  async function runAction(command: string) {
+    if (!payload.value.reminder_id) return
+    try {
+      await invoke(command, { reminderId: payload.value.reminder_id })
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '提醒操作失败')
+    }
+  }
+
   async function dismissReminder() {
-    await invoke('dismiss_reminder_window')
+    await runAction('dismiss_reminder_window')
   }
 
   async function snoozeReminder() {
-    await invoke('snooze_reminder')
+    await runAction('snooze_reminder')
+  }
+
+  async function pauseUntilTomorrow() {
+    await runAction('pause_reminder_until_tomorrow')
   }
 
   onMounted(() => {
@@ -35,5 +49,6 @@ export function useReminderWindow() {
     snoozeText,
     dismissReminder,
     snoozeReminder,
+    pauseUntilTomorrow,
   }
 }

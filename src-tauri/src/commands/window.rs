@@ -41,18 +41,23 @@ pub fn active_reminder_payload(app: AppHandle) -> Result<Option<ReminderPayload>
 }
 
 #[tauri::command]
-pub fn dismiss_reminder_window(app: AppHandle) -> Result<(), String> {
-    reminder::dismiss(&app)
+pub fn dismiss_reminder_window(app: AppHandle, reminder_id: String) -> Result<(), String> {
+    reminder::dismiss(&app, reminder_id)
 }
 
 #[tauri::command]
-pub fn snooze_reminder(app: AppHandle) -> Result<(), String> {
-    reminder::snooze(&app)
+pub fn snooze_reminder(app: AppHandle, reminder_id: String) -> Result<(), String> {
+    reminder::snooze(&app, reminder_id)
 }
 
 #[tauri::command]
-pub fn preview_reminder_window(app: AppHandle) -> Result<(), String> {
-    reminder::preview(&app)
+pub fn pause_reminder_until_tomorrow(app: AppHandle, reminder_id: String) -> Result<(), String> {
+    reminder::pause_until_tomorrow(&app, reminder_id)
+}
+
+#[tauri::command]
+pub fn preview_reminder_window(app: AppHandle, reminder_id: String) -> Result<(), String> {
+    reminder::preview(&app, reminder_id)
 }
 
 #[tauri::command]

@@ -4,10 +4,23 @@ import type { PetRoleId } from '@/types/pet'
 
 export type InfoMode = 'auto' | 'always' | 'hidden'
 
-export interface ReminderSettings {
+export type ReminderSchedule =
+  | { type: 'interval', interval_minutes: number }
+  | { type: 'fixed_time', time: string }
+
+export interface Reminder {
+  id: string
   enabled: boolean
   message: string
-  interval_minutes: number
+  schedule: ReminderSchedule
+  snooze_minutes: number
+  paused_until: string | null
+}
+
+export interface ReminderInput {
+  id?: string
+  message: string
+  schedule: ReminderSchedule
   snooze_minutes: number
 }
 
@@ -35,7 +48,7 @@ export interface AppSettings {
   main_window_always_on_top: boolean
   main_window_show_in_taskbar: boolean
   chat_shortcut: string
-  reminder: ReminderSettings
+  reminders: Reminder[]
 }
 
 export const DEFAULT_PET_SCALE = 0.85
@@ -60,10 +73,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   main_window_always_on_top: true,
   main_window_show_in_taskbar: false,
   chat_shortcut: DEFAULT_CHAT_SHORTCUT,
-  reminder: {
-    enabled: false,
-    message: DEFAULT_REMINDER_MESSAGE,
-    interval_minutes: DEFAULT_REMINDER_INTERVAL_MINUTES,
-    snooze_minutes: DEFAULT_REMINDER_SNOOZE_MINUTES,
-  },
+  reminders: [],
 }

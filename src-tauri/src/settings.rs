@@ -5,11 +5,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize};
 
 const SETTINGS_FILE: &str = "settings.json";
 const POSITION_SAVE_INTERVAL: Duration = Duration::from_millis(500);
+const LEGACY_REMINDER_ID: &str = "legacy-default";
 pub const DEFAULT_PET_SCALE: f64 = 0.85;
 pub const DEFAULT_CHAT_SHORTCUT: &str = "Ctrl+Alt+D";
 pub const DEFAULT_SETTINGS_WINDOW_WIDTH: u32 = 500;
@@ -28,6 +30,7 @@ pub enum InfoMode {
     Always,
     Hidden,
 }
+
 impl Default for InfoMode {
     fn default() -> Self {
         Self::Auto
@@ -39,6 +42,7 @@ pub struct SavedPosition {
     pub x: i32,
     pub y: i32,
 }
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SavedWindowBounds {
     pub x: i32,
@@ -48,15 +52,47 @@ pub struct SavedWindowBounds {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct ReminderSettings {
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ReminderSchedule {
+    Interval { interval_minutes: u32 },
+    FixedTime { time: String },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct Reminder {
+    pub id: String,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default = "default_reminder_message")]
     pub message: String,
-    #[serde(default = "default_reminder_interval_minutes")]
-    pub interval_minutes: u32,
+    pub schedule: ReminderSchedule,
     #[serde(default = "default_reminder_snooze_minutes")]
     pub snooze_minutes: u32,
+    #[serde(default)]
+    pub paused_until: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct ReminderInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default = "default_reminder_message")]
+    pub message: String,
+    pub schedule: ReminderSchedule,
+    #[serde(default = "default_reminder_snooze_minutes")]
+    pub snooze_minutes: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct LegacyReminderSettings {
+    #[serde(default)]
+    enabled: bool,
+    #[serde(default = "default_reminder_message")]
+    message: String,
+    #[serde(default = "default_reminder_interval_minutes")]
+    interval_minutes: u32,
+    #[serde(default = "default_reminder_snooze_minutes")]
+    snooze_minutes: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -84,7 +120,15 @@ pub struct AppSettings {
     #[serde(default = "default_chat_shortcut")]
     pub chat_shortcut: String,
     #[serde(default)]
-    pub reminder: ReminderSettings,
+    pub reminders: Vec<Reminder>,
+}
+
+#[derive(Deserialize)]
+struct StoredSettings {
+    #[serde(flatten)]
+    settings: AppSettings,
+    #[serde(default)]
+    reminder: Option<LegacyReminderSettings>,
 }
 
 impl From<(PhysicalPosition<i32>, PhysicalSize<u32>)> for SavedWindowBounds {
@@ -97,6 +141,7 @@ impl From<(PhysicalPosition<i32>, PhysicalSize<u32>)> for SavedWindowBounds {
         }
     }
 }
+
 impl From<SavedWindowBounds> for (PhysicalPosition<i32>, PhysicalSize<u32>) {
     fn from(bounds: SavedWindowBounds) -> Self {
         (
@@ -105,6 +150,7 @@ impl From<SavedWindowBounds> for (PhysicalPosition<i32>, PhysicalSize<u32>) {
         )
     }
 }
+
 impl From<PhysicalPosition<i32>> for SavedPosition {
     fn from(position: PhysicalPosition<i32>) -> Self {
         Self {
@@ -113,21 +159,13 @@ impl From<PhysicalPosition<i32>> for SavedPosition {
         }
     }
 }
+
 impl From<SavedPosition> for PhysicalPosition<i32> {
     fn from(position: SavedPosition) -> Self {
         Self::new(position.x, position.y)
     }
 }
-impl Default for ReminderSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            message: default_reminder_message(),
-            interval_minutes: default_reminder_interval_minutes(),
-            snooze_minutes: default_reminder_snooze_minutes(),
-        }
-    }
-}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -142,7 +180,7 @@ impl Default for AppSettings {
             main_window_always_on_top: default_always_on_top(),
             main_window_show_in_taskbar: false,
             chat_shortcut: default_chat_shortcut(),
-            reminder: ReminderSettings::default(),
+            reminders: Vec::new(),
         }
     }
 }
@@ -150,24 +188,31 @@ impl Default for AppSettings {
 fn default_pet_scale() -> f64 {
     DEFAULT_PET_SCALE
 }
+
 fn default_pet_role() -> String {
     DEFAULT_PET_ROLE.to_string()
 }
+
 fn default_shortcut_enabled() -> bool {
     true
 }
+
 fn default_always_on_top() -> bool {
     true
 }
+
 fn default_chat_shortcut() -> String {
     DEFAULT_CHAT_SHORTCUT.to_string()
 }
+
 fn default_reminder_message() -> String {
     DEFAULT_REMINDER_MESSAGE.to_string()
 }
+
 fn default_reminder_interval_minutes() -> u32 {
     DEFAULT_REMINDER_INTERVAL_MINUTES
 }
+
 fn default_reminder_snooze_minutes() -> u32 {
     DEFAULT_REMINDER_SNOOZE_MINUTES
 }
@@ -180,6 +225,7 @@ fn normalize_settings_window_bounds(bounds: SavedWindowBounds) -> SavedWindowBou
         height: bounds.height.max(MIN_SETTINGS_WINDOW_HEIGHT),
     }
 }
+
 fn normalize_reminder_message(message: String) -> String {
     let trimmed = message.trim();
     if trimmed.is_empty() {
@@ -188,14 +234,105 @@ fn normalize_reminder_message(message: String) -> String {
         trimmed.to_string()
     }
 }
+
 fn normalize_minutes(value: u32) -> u32 {
     value.max(1)
 }
+
+fn normalize_time(time: String) -> String {
+    let parts: Vec<_> = time.trim().split(':').collect();
+    if parts.len() != 2 {
+        return "09:00".to_string();
+    }
+    let Ok(hour) = parts[0].parse::<u32>() else {
+        return "09:00".to_string();
+    };
+    let Ok(minute) = parts[1].parse::<u32>() else {
+        return "09:00".to_string();
+    };
+    if hour > 23 || minute > 59 {
+        return "09:00".to_string();
+    }
+    format!("{hour:02}:{minute:02}")
+}
+
+fn normalize_schedule(schedule: ReminderSchedule) -> ReminderSchedule {
+    match schedule {
+        ReminderSchedule::Interval { interval_minutes } => ReminderSchedule::Interval {
+            interval_minutes: normalize_minutes(interval_minutes),
+        },
+        ReminderSchedule::FixedTime { time } => ReminderSchedule::FixedTime {
+            time: normalize_time(time),
+        },
+    }
+}
+
+fn normalize_pause(paused_until: Option<String>) -> Option<String> {
+    paused_until.and_then(|value| {
+        DateTime::parse_from_rfc3339(value.trim())
+            .ok()
+            .map(|time| time.with_timezone(&Local).to_rfc3339())
+    })
+}
+
+fn normalize_reminder(mut reminder: Reminder, index: usize) -> Reminder {
+    let fallback_id = format!("reminder-{}", index + 1);
+    reminder.id = if reminder.id.trim().is_empty() {
+        fallback_id
+    } else {
+        reminder.id.trim().to_string()
+    };
+    reminder.message = normalize_reminder_message(reminder.message);
+    reminder.schedule = normalize_schedule(reminder.schedule);
+    reminder.snooze_minutes = normalize_minutes(reminder.snooze_minutes);
+    reminder.paused_until = normalize_pause(reminder.paused_until);
+    reminder
+}
+
+fn normalize_reminders(reminders: Vec<Reminder>) -> Vec<Reminder> {
+    let mut ids = std::collections::HashSet::new();
+    reminders
+        .into_iter()
+        .enumerate()
+        .map(|(index, mut reminder)| {
+            reminder = normalize_reminder(reminder, index);
+            let base = reminder.id.clone();
+            let mut suffix = 2;
+            while !ids.insert(reminder.id.clone()) {
+                reminder.id = format!("{base}-{suffix}");
+                suffix += 1;
+            }
+            reminder
+        })
+        .collect()
+}
+
 fn normalize_pet_role(role: String) -> String {
     match role.as_str() {
         "guga" | "monthly-salary-cat" | "broom-witch" => role,
         _ => default_pet_role(),
     }
+}
+
+fn legacy_reminder(legacy: LegacyReminderSettings) -> Reminder {
+    Reminder {
+        id: LEGACY_REMINDER_ID.to_string(),
+        enabled: legacy.enabled,
+        message: legacy.message,
+        schedule: ReminderSchedule::Interval {
+            interval_minutes: legacy.interval_minutes,
+        },
+        snooze_minutes: legacy.snooze_minutes,
+        paused_until: None,
+    }
+}
+
+fn migrate_stored_settings(stored: StoredSettings, has_reminders: bool) -> AppSettings {
+    let mut settings = stored.settings;
+    if !has_reminders {
+        settings.reminders = stored.reminder.map(legacy_reminder).into_iter().collect();
+    }
+    settings
 }
 
 struct SettingsData {
@@ -213,12 +350,29 @@ impl SettingsState {
     pub fn load(app: &AppHandle) -> Result<Self, String> {
         let path = settings_path(app)?;
         let mut settings = if path.exists() {
-            serde_json::from_str(&fs::read_to_string(&path).map_err(|e| e.to_string())?)
-                .unwrap_or_default()
+            let content = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            match serde_json::from_str::<StoredSettings>(&content) {
+                Ok(stored) => {
+                    let has_reminders = serde_json::from_str::<serde_json::Value>(&content)
+                        .ok()
+                        .and_then(|value| {
+                            value
+                                .as_object()
+                                .map(|object| object.contains_key("reminders"))
+                        })
+                        .unwrap_or(false);
+                    migrate_stored_settings(stored, has_reminders)
+                }
+                Err(error) => {
+                    eprintln!("无法读取应用设置，已使用默认值: {error}");
+                    AppSettings::default()
+                }
+            }
         } else {
             AppSettings::default()
         };
         settings.pet_role = normalize_pet_role(settings.pet_role);
+        settings.reminders = normalize_reminders(settings.reminders);
         let state = Self {
             path,
             inner: Mutex::new(SettingsData {
@@ -230,56 +384,127 @@ impl SettingsState {
         state.persist()?;
         Ok(state)
     }
+
     pub fn get(&self) -> Result<AppSettings, String> {
         Ok(self.lock()?.settings.clone())
     }
+
     pub fn set_pet_scale(&self, scale: f64) -> Result<AppSettings, String> {
-        self.update(|s| s.pet_scale = scale)
+        self.update(|settings| settings.pet_scale = scale)
     }
+
     pub fn set_pet_role(&self, role: String) -> Result<AppSettings, String> {
-        self.update(|s| s.pet_role = normalize_pet_role(role))
+        self.update(|settings| settings.pet_role = normalize_pet_role(role))
     }
+
     pub fn set_info_mode(&self, mode: InfoMode) -> Result<AppSettings, String> {
-        self.update(|s| s.info_mode = mode)
+        self.update(|settings| settings.info_mode = mode)
     }
+
     pub fn set_size_locked(&self, locked: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.size_locked = locked)
+        self.update(|settings| settings.size_locked = locked)
     }
+
     pub fn set_shortcut_enabled(&self, enabled: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.shortcut_enabled = enabled)
+        self.update(|settings| settings.shortcut_enabled = enabled)
     }
+
     pub fn set_launch_at_startup(&self, enabled: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.launch_at_startup = enabled)
+        self.update(|settings| settings.launch_at_startup = enabled)
     }
+
     pub fn set_main_window_always_on_top(&self, enabled: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.main_window_always_on_top = enabled)
+        self.update(|settings| settings.main_window_always_on_top = enabled)
     }
+
     pub fn set_main_window_show_in_taskbar(&self, enabled: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.main_window_show_in_taskbar = enabled)
+        self.update(|settings| settings.main_window_show_in_taskbar = enabled)
     }
+
     pub fn set_chat_shortcut(&self, shortcut: String) -> Result<AppSettings, String> {
-        self.update(|s| s.chat_shortcut = shortcut)
+        self.update(|settings| settings.chat_shortcut = shortcut)
     }
-    pub fn set_reminder_enabled(&self, enabled: bool) -> Result<AppSettings, String> {
-        self.update(|s| s.reminder.enabled = enabled)
+
+    pub fn create_reminder(&self, input: ReminderInput) -> Result<AppSettings, String> {
+        self.update(|settings| {
+            let index = settings.reminders.len();
+            let reminder = normalize_reminder(
+                Reminder {
+                    id: input
+                        .id
+                        .unwrap_or_else(|| format!("reminder-{}", index + 1)),
+                    enabled: true,
+                    message: input.message,
+                    schedule: input.schedule,
+                    snooze_minutes: input.snooze_minutes,
+                    paused_until: None,
+                },
+                index,
+            );
+            let base = reminder.id.clone();
+            let mut candidate = base.clone();
+            let mut suffix = 2;
+            while settings.reminders.iter().any(|item| item.id == candidate) {
+                candidate = format!("{base}-{suffix}");
+                suffix += 1;
+            }
+            settings.reminders.push(Reminder {
+                id: candidate,
+                ..reminder
+            });
+        })
     }
-    pub fn set_reminder_message(&self, message: String) -> Result<AppSettings, String> {
-        self.update(|s| s.reminder.message = normalize_reminder_message(message))
+
+    pub fn update_reminder(&self, reminder: Reminder) -> Result<AppSettings, String> {
+        self.update(|settings| {
+            let Some(index) = settings
+                .reminders
+                .iter()
+                .position(|item| item.id == reminder.id)
+            else {
+                return;
+            };
+            settings.reminders[index] = normalize_reminder(reminder, index);
+        })
     }
-    pub fn set_reminder_interval(&self, minutes: u32) -> Result<AppSettings, String> {
-        self.update(|s| s.reminder.interval_minutes = normalize_minutes(minutes))
+
+    pub fn delete_reminder(&self, id: String) -> Result<AppSettings, String> {
+        self.update(|settings| settings.reminders.retain(|reminder| reminder.id != id))
     }
-    pub fn set_reminder_snooze_minutes(&self, minutes: u32) -> Result<AppSettings, String> {
-        self.update(|s| s.reminder.snooze_minutes = normalize_minutes(minutes))
+
+    pub fn set_reminder_enabled(&self, id: String, enabled: bool) -> Result<AppSettings, String> {
+        self.update(|settings| {
+            if let Some(reminder) = settings.reminders.iter_mut().find(|item| item.id == id) {
+                reminder.enabled = enabled;
+                if !enabled {
+                    reminder.paused_until = None;
+                }
+            }
+        })
     }
+
+    pub fn set_reminder_pause(
+        &self,
+        id: String,
+        paused_until: Option<String>,
+    ) -> Result<AppSettings, String> {
+        self.update(|settings| {
+            if let Some(reminder) = settings.reminders.iter_mut().find(|item| item.id == id) {
+                reminder.paused_until = normalize_pause(paused_until);
+            }
+        })
+    }
+
     pub fn reset_all(&self) -> Result<AppSettings, String> {
-        self.update(|s| *s = AppSettings::default())
+        self.update(|settings| *settings = AppSettings::default())
     }
+
     pub fn reset_main_position(&self) -> Result<AppSettings, String> {
-        self.update(|s| s.main_position = None)
+        self.update(|settings| settings.main_position = None)
     }
+
     pub fn reset_settings_window_bounds(&self) -> Result<AppSettings, String> {
-        self.update(|s| s.settings_window_bounds = None)
+        self.update(|settings| settings.settings_window_bounds = None)
     }
 
     pub fn save_main_position_throttled(
@@ -302,6 +527,7 @@ impl SettingsState {
         self.write(&settings)?;
         Ok(settings)
     }
+
     pub fn save_settings_window_bounds_throttled(
         &self,
         bounds: SavedWindowBounds,
@@ -332,19 +558,22 @@ impl SettingsState {
         self.write(&settings)?;
         Ok(settings)
     }
+
     fn persist(&self) -> Result<(), String> {
         self.write(&self.get()?)
     }
+
     fn write(&self, settings: &AppSettings) -> Result<(), String> {
         if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
         fs::write(
             &self.path,
-            serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?,
+            serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?,
         )
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
     }
+
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, SettingsData>, String> {
         self.inner
             .lock()

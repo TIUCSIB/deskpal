@@ -2,7 +2,10 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::{
     parse_chat_shortcut, reminder,
-    settings::{AppSettings, InfoMode, SavedPosition, SavedWindowBounds, SettingsState},
+    settings::{
+        AppSettings, InfoMode, Reminder, ReminderInput, SavedPosition, SavedWindowBounds,
+        SettingsState,
+    },
     sync_autostart, sync_chat_shortcut, windowing,
 };
 
@@ -148,39 +151,46 @@ pub fn set_main_window_show_in_taskbar(
 }
 
 #[tauri::command]
+pub fn create_reminder(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    input: ReminderInput,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.create_reminder(input)?)
+}
+
+#[tauri::command]
+pub fn update_reminder(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    reminder: Reminder,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.update_reminder(reminder)?)
+}
+
+#[tauri::command]
+pub fn delete_reminder(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    id: String,
+) -> Result<AppSettings, String> {
+    let updated = settings.delete_reminder(id.clone())?;
+    reminder::remove_reminder(&app, &id)?;
+    finish_update(&app, updated)
+}
+
+#[tauri::command]
 pub fn set_reminder_enabled(
     app: AppHandle,
     settings: State<'_, SettingsState>,
+    id: String,
     enabled: bool,
 ) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_reminder_enabled(enabled)?)
-}
-
-#[tauri::command]
-pub fn set_reminder_message(
-    app: AppHandle,
-    settings: State<'_, SettingsState>,
-    message: String,
-) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_reminder_message(message)?)
-}
-
-#[tauri::command]
-pub fn set_reminder_interval(
-    app: AppHandle,
-    settings: State<'_, SettingsState>,
-    interval_minutes: u32,
-) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_reminder_interval(interval_minutes)?)
-}
-
-#[tauri::command]
-pub fn set_reminder_snooze_minutes(
-    app: AppHandle,
-    settings: State<'_, SettingsState>,
-    snooze_minutes: u32,
-) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_reminder_snooze_minutes(snooze_minutes)?)
+    let updated = settings.set_reminder_enabled(id.clone(), enabled)?;
+    if !enabled {
+        reminder::remove_reminder(&app, &id)?;
+    }
+    finish_update(&app, updated)
 }
 
 #[tauri::command]

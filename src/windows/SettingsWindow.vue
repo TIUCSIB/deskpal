@@ -59,13 +59,20 @@ const {
   resetAllSettings,
   intervalOptions,
   snoozeOptions,
-  reminderMessageDraft,
-  handleReminderEnabledChange,
-  handleReminderIntervalChange,
-  handleReminderSnoozeChange,
-  handleReminderDraftInput,
-  applyReminderMessage,
+  draft,
+  deleteTarget,
+  openCreateEditor,
+  openEditEditor,
+  cancelEditor,
+  updateDraft,
+  saveReminder,
+  setReminderEnabled,
   previewReminder,
+  requestDelete,
+  cancelDelete,
+  confirmDelete,
+  formatSchedule,
+  formatPause,
   petRoles,
   selectedRole,
   handlePetRoleChange,
@@ -210,18 +217,27 @@ function handleScaleValue(value: number[] | undefined) {
         <ScrollArea class="h-full">
           <div class="pr-2">
             <ReminderSettingsSection
-              :enabled="settings.reminder.enabled"
-              :message-draft="reminderMessageDraft"
-              :interval-minutes="settings.reminder.interval_minutes"
-              :snooze-minutes="settings.reminder.snooze_minutes"
+              :reminders="settings.reminders"
+              :draft="draft"
+              :delete-target="deleteTarget"
               :interval-options="intervalOptions"
               :snooze-options="snoozeOptions"
-              @update:enabled="handleReminderEnabledChange"
-              @update:message-draft="handleReminderDraftInput"
-              @apply-message="applyReminderMessage"
-              @update:interval="handleReminderIntervalChange"
-              @update:snooze="handleReminderSnoozeChange"
+              :format-schedule="formatSchedule"
+              :format-pause="formatPause"
+              @create="openCreateEditor"
+              @edit="openEditEditor"
+              @cancel="cancelEditor"
+              @save="saveReminder"
+              @update:draft-message="updateDraft('message', $event)"
+              @update:draft-schedule-type="updateDraft('scheduleType', $event)"
+              @update:draft-interval-minutes="updateDraft('intervalMinutes', $event)"
+              @update:draft-time="updateDraft('time', $event)"
+              @update:draft-snooze-minutes="updateDraft('snoozeMinutes', $event)"
+              @update:enabled="setReminderEnabled"
               @preview="previewReminder"
+              @request-delete="requestDelete"
+              @cancel-delete="cancelDelete"
+              @confirm-delete="confirmDelete"
             />
           </div>
         </ScrollArea>
