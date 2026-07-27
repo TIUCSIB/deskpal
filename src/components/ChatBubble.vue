@@ -143,7 +143,6 @@ defineExpose({ focusInput, resetSession })
     padding 180ms ease,
     border-radius 180ms ease,
     opacity 160ms ease;
-  animation: appear 240ms cubic-bezier(0.2, 1.25, 0.32, 1);
 }
 
 .chat-bubble__surface--loading {
@@ -250,12 +249,6 @@ defineExpose({ focusInput, resetSession })
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   animation: reply-in 180ms ease-out;
-}
-
-@keyframes appear {
-  0% { opacity: 0; transform: translateY(8px) scale(0.88); }
-  70% { opacity: 1; transform: translateY(-1px) scale(1.025); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes reply-in {

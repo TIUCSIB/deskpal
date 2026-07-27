@@ -1,20 +1,23 @@
 <script setup lang="ts">
 /** ChatWindow.vue - 独立聊天输入窗口 */
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import ChatBubble from '@/components/ChatBubble.vue'
+import { useOverlayTransition } from '@/composables/useOverlayTransition'
 import { usePetContextReceiver } from '@/composables/useWindowBridge'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const { context } = usePetContextReceiver()
+const { revision, transitionStyle } = useOverlayTransition()
 const chatRef = ref<InstanceType<typeof ChatBubble> | null>(null)
 let unlistenFocusInput: UnlistenFn | null = null
 let unlistenWindowFocus: UnlistenFn | null = null
 const BLUR_HIDE_GUARD_MS = 160
 let hasFocusedSinceShow = false
 let lastFocusAt = 0
+const animatedStyle = computed(() => transitionStyle.value)
 
 async function hideChat() {
   chatRef.value?.resetSession()
@@ -47,7 +50,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="chat-window" @keydown.esc="hideChat">
+  <main
+    class="chat-window"
+    :class="revision % 2 === 0 ? 'chat-window--enter-a' : 'chat-window--enter-b'"
+    :style="animatedStyle"
+    @keydown.esc="hideChat"
+  >
     <ChatBubble
       ref="chatRef"
       :info="context.info"
@@ -65,26 +73,44 @@ onUnmounted(() => {
   justify-content: center;
   padding: 0 8px 0;
   background: transparent;
-  opacity: 0;
-  transform: translateY(0) scale(1);
-  transform-origin: bottom center;
-  animation: chat-bubble-pop 260ms cubic-bezier(0.2, 1.3, 0.32, 1) forwards;
+  transform-origin: var(--overlay-origin, center bottom);
 }
 
-@keyframes chat-bubble-pop {
-  0% {
+.chat-window--enter-a {
+  animation: overlay-enter-a 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
+}
+
+.chat-window--enter-b {
+  animation: overlay-enter-b 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
+}
+
+@keyframes overlay-enter-a {
+  from {
     opacity: 0;
-    transform: translateY(10px) scale(0.9);
+    transform: translate(var(--overlay-enter-x, 0), var(--overlay-enter-y, 8px)) scale(0.94);
   }
 
-  72% {
+  to {
     opacity: 1;
-    transform: translateY(-1px) scale(1.015);
+    transform: translate(0) scale(1);
+  }
+}
+
+@keyframes overlay-enter-b {
+  from {
+    opacity: 0;
+    transform: translate(var(--overlay-enter-x, 0), var(--overlay-enter-y, 8px)) scale(0.94);
   }
 
-  100% {
+  to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-window {
+    animation-duration: 1ms;
   }
 }
 </style>

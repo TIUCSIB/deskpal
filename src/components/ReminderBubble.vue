@@ -80,7 +80,6 @@ const emit = defineEmits<{
     padding 180ms ease,
     border-radius 180ms ease,
     opacity 160ms ease;
-  animation: reminder-appear 240ms cubic-bezier(0.2, 1.25, 0.32, 1);
 }
 
 .reminder-bubble__header {
@@ -173,9 +172,4 @@ const emit = defineEmits<{
   font-weight: 700;
 }
 
-@keyframes reminder-appear {
-  0% { opacity: 0; transform: translateY(8px) scale(0.88); }
-  70% { opacity: 1; transform: translateY(-1px) scale(1.025); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
 </style>

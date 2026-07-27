@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /** ReminderWindow.vue - 独立提醒浮窗 */
+import { computed } from 'vue'
 import ReminderBubble from '@/components/ReminderBubble.vue'
+import { useOverlayTransition } from '@/composables/useOverlayTransition'
 import { useReminderWindow } from '@/composables/useReminderWindow'
 
 const {
@@ -11,10 +13,17 @@ const {
   snoozeReminder,
   pauseUntilTomorrow,
 } = useReminderWindow()
+const { revision, transitionStyle } = useOverlayTransition()
+const animatedStyle = computed(() => transitionStyle.value)
 </script>
 
 <template>
-  <main class="reminder-window" @keydown.esc="dismissReminder">
+  <main
+    class="reminder-window"
+    :class="revision % 2 === 0 ? 'reminder-window--enter-a' : 'reminder-window--enter-b'"
+    :style="animatedStyle"
+    @keydown.esc="dismissReminder"
+  >
     <ReminderBubble
       :message="message"
       :compact="compact"
@@ -35,26 +44,44 @@ const {
   justify-content: center;
   padding: 0 8px 0;
   background: transparent;
-  opacity: 0;
-  transform: translateY(0) scale(1);
-  transform-origin: bottom center;
-  animation: reminder-bubble-pop 260ms cubic-bezier(0.2, 1.3, 0.32, 1) forwards;
+  transform-origin: var(--overlay-origin, center bottom);
 }
 
-@keyframes reminder-bubble-pop {
-  0% {
+.reminder-window--enter-a {
+  animation: overlay-enter-a 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
+}
+
+.reminder-window--enter-b {
+  animation: overlay-enter-b 200ms cubic-bezier(0.2, 1.15, 0.32, 1) both;
+}
+
+@keyframes overlay-enter-a {
+  from {
     opacity: 0;
-    transform: translateY(10px) scale(0.9);
+    transform: translate(var(--overlay-enter-x, 0), var(--overlay-enter-y, 8px)) scale(0.94);
   }
 
-  72% {
+  to {
     opacity: 1;
-    transform: translateY(-1px) scale(1.015);
+    transform: translate(0) scale(1);
+  }
+}
+
+@keyframes overlay-enter-b {
+  from {
+    opacity: 0;
+    transform: translate(var(--overlay-enter-x, 0), var(--overlay-enter-y, 8px)) scale(0.94);
   }
 
-  100% {
+  to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-window {
+    animation-duration: 1ms;
   }
 }
 </style>

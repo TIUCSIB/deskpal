@@ -14,10 +14,13 @@ export interface ReminderPayload {
   snooze_minutes: number
 }
 
+export type OverlaySide = 'above' | 'below' | 'left' | 'right'
+
 export const WINDOW_EVENTS = {
   petContext: 'pet://context',
   settingsUpdated: 'pet://settings-updated',
   setScale: 'pet://set-scale',
   focusChatInput: 'chat://focus-input',
   reminderPayload: 'pet://reminder-payload',
+  overlayPresent: 'overlay://present',
 } as const
