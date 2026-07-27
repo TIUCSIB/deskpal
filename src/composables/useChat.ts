@@ -1,107 +1,103 @@
 import { ref } from 'vue'
+import { getPetPersonality } from '@/config/petPersonalities'
+import { DEFAULT_PET_ROLE } from '@/config/petRoles'
+import type { PetRoleId } from '@/types/pet'
 import type { SystemInfo, PetMood } from '@/types/system'
+import { chooseWeighted } from '@/utils/weightedChoice'
 
 interface ChatMessage {
   text: string
   isUser: boolean
 }
 
-/** 根据系统状态和心情生成桌宠回复 */
+function chooseReply(replies: string[], random: () => number): string {
+  return chooseWeighted(replies.map((value) => ({ value, weight: 1 })), random) ?? ''
+}
+
+/** 根据角色人格、系统状态和心情生成桌宠回复 */
 export function generateReply(
   userText: string,
   info: SystemInfo | null,
   mood: PetMood,
+  roleId: PetRoleId = DEFAULT_PET_ROLE,
+  random: () => number = Math.random,
 ): string {
   const text = userText.trim().toLowerCase()
+  const personality = getPetPersonality(roleId)
+  const system = personality.systemReplies
 
   if (text.includes('内存') || text.includes('memory')) {
-    if (!info) return '我还没拿到内存数据呢...'
-    return `现在内存用了 ${info.memory_usage.toFixed(1)}%（${info.memory_used_mb}/${info.memory_total_mb} MB）`
+    return info
+      ? system.memory(`${info.memory_usage.toFixed(1)}%（${info.memory_used_mb}/${info.memory_total_mb} MB）`)
+      : system.missing
   }
 
   if (text.includes('cpu') || text.includes('处理器')) {
-    if (!info) return 'CPU 数据还没到...'
-    return `当前 CPU 使用率 ${info.cpu_usage.toFixed(1)}%`
+    return info ? system.cpu(`${info.cpu_usage.toFixed(1)}%`) : system.missing
   }
 
   if (text.includes('磁盘') || text.includes('disk')) {
-    if (!info) return '磁盘数据还没到...'
-    return `磁盘已经用了 ${info.disk_usage.toFixed(1)}% 啦`
+    return info ? system.disk(`${info.disk_usage.toFixed(1)}%`) : system.missing
   }
 
   if (text.includes('网络') || text.includes('网速') || text.includes('上传') || text.includes('下载')) {
-    if (!info) return '网络数据还没到...'
-    return `当前下载 ${info.network_down_kbps.toFixed(1)} KB/s，上传 ${info.network_up_kbps.toFixed(1)} KB/s`
+    return info
+      ? system.network(`${info.network_down_kbps.toFixed(1)} KB/s`, `${info.network_up_kbps.toFixed(1)} KB/s`)
+      : system.missing
   }
 
   if (text.includes('运行') || text.includes('uptime') || text.includes('多久')) {
-    if (!info) return '还不知道运行了多久...'
-    const h = Math.floor(info.uptime_secs / 3600)
-    const m = Math.floor((info.uptime_secs % 3600) / 60)
-    return `电脑已经运行了 ${h} 小时 ${m} 分钟`
+    if (!info) return system.missing
+    const hours = Math.floor(info.uptime_secs / 3600)
+    const minutes = Math.floor((info.uptime_secs % 3600) / 60)
+    return system.uptime(hours, minutes)
   }
 
   if (text.includes('你好') || text.includes('hi') || text.includes('hello')) {
-    return '你好呀！有什么我可以帮你的吗？'
+    return chooseReply(personality.greetings, random)
   }
 
   if (text.includes('累') || text.includes('辛苦')) {
-    return '你辛苦啦～记得适当休息哦！'
+    return chooseReply(personality.supportiveReplies, random)
   }
 
   if (mood === 'warning' && info) {
-    if (info.cpu_usage > 80) {
-      return `CPU 负载有点高（${info.cpu_usage.toFixed(1)}%），看看是不是有程序卡住了？`
-    }
-    return `内存快满了（${info.memory_usage.toFixed(1)}%），建议清理一下后台程序～`
+    return info.cpu_usage > 80
+      ? system.cpuWarning(`${info.cpu_usage.toFixed(1)}%`)
+      : system.memoryWarning(`${info.memory_usage.toFixed(1)}%`)
   }
 
-  if (mood === 'sleepy') {
-    const sleepyReplies = [
-      '这么晚了还不睡吗？注意身体哦～',
-      '夜深了，明天再忙吧～',
-      '我也困了...要不要一起休息？',
-    ]
-    return sleepyReplies[Math.floor(Math.random() * sleepyReplies.length)]
-  }
+  if (mood === 'sleepy') return chooseReply(personality.sleepyReplies, random)
 
   const defaultReplies = [
-    '我很好，谢谢关心！',
-    '今天心情不错～',
-    '有什么想聊的吗？',
-    '系统状态一切正常！',
-    '我在认真监控你的电脑哦～',
-    info ? `悄悄告诉你，CPU 现在 ${info.cpu_usage.toFixed(1)}%` : '正在获取系统信息...',
+    ...personality.defaultReplies,
+    ...(info ? [system.cpu(`现在 ${info.cpu_usage.toFixed(1)}%`)] : ['正在获取系统信息...']),
   ]
-  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)]
+  return chooseReply(defaultReplies, random)
 }
 
-/** 时间感知的打招呼 */
-export function getGreeting(): string {
-  const hour = new Date().getHours()
-  if (hour >= 5 && hour < 11) return '早上好！新的一天开始了～'
-  if (hour >= 11 && hour < 14) return '中午好！记得吃午饭哦～'
-  if (hour >= 14 && hour < 18) return '下午好！继续加油～'
-  if (hour >= 18 && hour < 22) return '晚上好！辛苦一天了～'
-  return '这么晚了，注意休息哦～'
+/** 时间感知的角色问候 */
+export function getGreeting(
+  roleId: PetRoleId = DEFAULT_PET_ROLE,
+  random: () => number = Math.random,
+): string {
+  const personality = getPetPersonality(roleId)
+  return chooseReply(personality.greetings, random)
 }
 
 export function useChat() {
   const messages = ref<ChatMessage[]>([])
   const inputText = ref('')
 
-  function sendMessage(info: SystemInfo | null, mood: PetMood) {
+  function sendMessage(info: SystemInfo | null, mood: PetMood, roleId: PetRoleId = DEFAULT_PET_ROLE) {
     const text = inputText.value.trim()
     if (!text) return
 
     messages.value.push({ text, isUser: true })
-    const reply = generateReply(text, info, mood)
-    messages.value.push({ text: reply, isUser: false })
+    messages.value.push({ text: generateReply(text, info, mood, roleId), isUser: false })
     inputText.value = ''
 
-    if (messages.value.length > 20) {
-      messages.value = messages.value.slice(-20)
-    }
+    if (messages.value.length > 20) messages.value = messages.value.slice(-20)
   }
 
   function addSystemMessage(text: string) {
@@ -112,11 +108,5 @@ export function useChat() {
     messages.value = []
   }
 
-  return {
-    messages,
-    inputText,
-    sendMessage,
-    addSystemMessage,
-    clearMessages,
-  }
+  return { messages, inputText, sendMessage, addSystemMessage, clearMessages }
 }

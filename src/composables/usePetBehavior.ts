@@ -1,48 +1,48 @@
 import { computed, ref } from 'vue'
+import { getPetPersonality } from '@/config/petPersonalities'
+import { DEFAULT_PET_ROLE } from '@/config/petRoles'
 import type { DragDirection } from '@/composables/usePetInteraction'
+import type { PetRoleId } from '@/types/pet'
 import type { PetMood } from '@/types/system'
+import { chooseWeighted } from '@/utils/weightedChoice'
 
 const INTERACTION_RETURN_DELAY = 900
 const IDLE_ANIMATION_DELAY = 15000
 const AMBIENT_ANIMATION_DELAY = 60000
-
-const MOOD_ANIMATIONS: Record<PetMood, string> = {
-  happy: 'Review',
-  normal: 'Idle',
-  sleepy: 'Waiting',
-  warning: 'Failed',
-}
-
-const AMBIENT_ANIMATIONS: Record<PetMood, string[]> = {
-  happy: ['Idle', 'Review', 'Waiting'],
-  normal: ['Idle', 'Review', 'Waiting'],
-  sleepy: ['Waiting', 'Idle', 'Review'],
-  warning: ['Failed'],
-}
+const REQUIRED_ANIMATIONS = ['Idle', 'RunLeft', 'RunRight', 'Waving', 'Jumping', 'Failed']
 
 /** usePetBehavior - 统一宠物动画状态与优先级 */
-export function usePetBehavior() {
+export function usePetBehavior(random: () => number = Math.random) {
   const mood = ref<PetMood>('normal')
+  const roleId = ref<PetRoleId>(DEFAULT_PET_ROLE)
+  const availableAnimations = ref<string[]>([...REQUIRED_ANIMATIONS, 'Waiting', 'Review', 'Running'])
   const hovering = ref(false)
   const dragDirection = ref<DragDirection | null>(null)
   const activated = ref(false)
   const ambientAnimation = ref<string | null>(null)
-  const ambientCursor = ref(0)
   const animationRevision = ref(0)
   let idleTimer: ReturnType<typeof setTimeout> | null = null
   let ambientTimer: ReturnType<typeof setTimeout> | null = null
   let activationTimer: ReturnType<typeof setTimeout> | null = null
   let scheduleGeneration = 0
 
+  const personality = computed(() => getPetPersonality(roleId.value))
+
   /** 按交互优先级推导当前唯一动画 */
   const animationName = computed(() => {
-    if (dragDirection.value === 'left') return 'RunLeft'
-    if (dragDirection.value === 'right') return 'RunRight'
-    if (activated.value) return 'Jumping'
-    if (hovering.value) return 'Waving'
-    if (mood.value === 'warning') return MOOD_ANIMATIONS.warning
-    return ambientAnimation.value ?? MOOD_ANIMATIONS[mood.value]
+    if (dragDirection.value === 'left') return resolveAnimation('RunLeft')
+    if (dragDirection.value === 'right') return resolveAnimation('RunRight')
+    if (activated.value) return resolveAnimation('Jumping')
+    if (hovering.value) return resolveAnimation('Waving')
+    if (mood.value === 'warning') return resolveAnimation(personality.value.moodAnimations.warning)
+    return resolveAnimation(ambientAnimation.value ?? personality.value.moodAnimations[mood.value])
   })
+
+  function resolveAnimation(animationName: string) {
+    if (availableAnimations.value.includes(animationName)) return animationName
+    if (availableAnimations.value.includes('Idle')) return 'Idle'
+    return availableAnimations.value[0] ?? 'Idle'
+  }
 
   function clearIdleTimer() {
     if (!idleTimer) return
@@ -79,7 +79,7 @@ export function usePetBehavior() {
     const generation = scheduleGeneration
     idleTimer = setTimeout(() => {
       if (generation !== scheduleGeneration || !canScheduleAmbient()) return
-      ambientAnimation.value = 'Waiting'
+      ambientAnimation.value = resolveAnimation('Waiting')
       scheduleAmbientLoop(generation)
     }, IDLE_ANIMATION_DELAY)
   }
@@ -88,10 +88,10 @@ export function usePetBehavior() {
     clearAmbientTimer()
     ambientTimer = setTimeout(() => {
       if (generation !== scheduleGeneration || !canScheduleAmbient()) return
-      const pool = AMBIENT_ANIMATIONS[mood.value]
-      const next = pool[ambientCursor.value % pool.length] ?? MOOD_ANIMATIONS[mood.value]
-      ambientCursor.value = (ambientCursor.value + 1) % pool.length
-      ambientAnimation.value = next
+      const ambientMood = mood.value === 'warning' ? 'normal' : mood.value
+      const choices = personality.value.ambientAnimations[ambientMood]
+      const next = chooseWeighted(choices, random) ?? personality.value.moodAnimations[ambientMood]
+      ambientAnimation.value = resolveAnimation(next)
       scheduleAmbientLoop(generation)
     }, AMBIENT_ANIMATION_DELAY)
   }
@@ -100,8 +100,14 @@ export function usePetBehavior() {
   function setMood(nextMood: PetMood) {
     if (mood.value === nextMood) return
     mood.value = nextMood
-    ambientCursor.value = 0
     scheduleAmbient()
+  }
+
+  /** 同步角色与可用动作；缺失的角色动作会自动回退到 Idle */
+  function setRole(nextRoleId: PetRoleId, animationNames: string[]) {
+    roleId.value = nextRoleId
+    availableAnimations.value = animationNames.length > 0 ? animationNames : ['Idle']
+    resetForRoleChange()
   }
 
   /** 同步像素级悬停状态 */
@@ -134,7 +140,6 @@ export function usePetBehavior() {
 
   /** 角色变更后清理旧的日常动画与计时器 */
   function resetForRoleChange() {
-    ambientCursor.value = 0
     animationRevision.value += 1
     scheduleAmbient()
   }
@@ -153,10 +158,12 @@ export function usePetBehavior() {
 
   return {
     mood,
+    roleId,
     hovering,
     animationName,
     animationRevision,
     setMood,
+    setRole,
     setHovering,
     setDragging,
     activate,

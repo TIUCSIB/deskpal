@@ -60,6 +60,7 @@ onUnmounted(() => {
       ref="chatRef"
       :info="context.info"
       :mood="context.mood"
+      :role-id="context.roleId"
     />
   </main>
 </template>

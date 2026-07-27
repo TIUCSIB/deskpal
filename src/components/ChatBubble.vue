@@ -4,6 +4,7 @@
  * 输入、加载和回复在同一表面内切换。
  */
 import { nextTick, onUnmounted, ref } from 'vue'
+import type { PetRoleId } from '@/types/pet'
 import type { PetMood, SystemInfo } from '@/types/system'
 import { generateReply } from '@/composables/useChat'
 
@@ -12,6 +13,7 @@ type ChatView = 'input' | 'loading' | 'reply'
 const props = defineProps<{
   info: SystemInfo | null
   mood: PetMood
+  roleId: PetRoleId
 }>()
 
 const LOADING_DURATION = 420
@@ -40,7 +42,7 @@ function handleSend() {
   const text = inputText.value.trim()
   if (!text || view.value !== 'input') return
 
-  const reply = generateReply(text, props.info, props.mood)
+  const reply = generateReply(text, props.info, props.mood, props.roleId)
   inputText.value = ''
   view.value = 'loading'
   replyTimer = setTimeout(() => {

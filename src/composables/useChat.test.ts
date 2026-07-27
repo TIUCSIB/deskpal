@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { useChat } from '@/composables/useChat'
+import { generateReply, useChat } from '@/composables/useChat'
 import type { SystemInfo } from '@/types/system'
 
 const INFO: SystemInfo = {
@@ -26,12 +26,18 @@ describe('useChat', () => {
     expect(chat.messages.value[1]).toEqual({ text: '当前 CPU 使用率 12.5%', isUser: false })
   })
 
+  it('uses the selected role personality while preserving system query priority', () => {
+    expect(generateReply('你好', INFO, 'normal', 'monthly-salary-cat', () => 0)).toContain('喵')
+    expect(generateReply('CPU 是多少', INFO, 'normal', 'broom-witch', () => 0)).toContain('魔力波动')
+    expect(generateReply('cpu', INFO, 'normal', 'monthly-salary-cat', () => 0)).toContain('12.5%')
+  })
+
   it('keeps only latest messages', () => {
     const chat = useChat()
     chat.clearMessages()
 
-    for (let i = 0; i < 12; i += 1) {
-      chat.inputText.value = `hello ${i}`
+    for (let index = 0; index < 12; index += 1) {
+      chat.inputText.value = `hello ${index}`
       chat.sendMessage(INFO, 'normal')
     }
 

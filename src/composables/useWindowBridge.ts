@@ -10,6 +10,7 @@ import { WINDOW_EVENTS } from '@/types/window'
 const INITIAL_CONTEXT: PetContext = {
   info: null,
   mood: 'normal',
+  roleId: 'guga',
   scale: 1,
 }
 

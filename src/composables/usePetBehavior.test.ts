@@ -75,4 +75,25 @@ describe('usePetBehavior', () => {
     expect(behavior.animationName.value).toBe('Waiting')
     behavior.dispose()
   })
+
+  it('uses a role-specific mood baseline without changing interaction priority', () => {
+    const behavior = usePetBehavior(() => 0)
+
+    behavior.setRole('monthly-salary-cat', ['Idle', 'RunLeft', 'RunRight', 'Waving', 'Jumping', 'Failed', 'Waiting', 'Review'])
+    expect(behavior.animationName.value).toBe('Waiting')
+
+    behavior.setHovering(true)
+    expect(behavior.animationName.value).toBe('Waving')
+    behavior.dispose()
+  })
+
+  it('falls back to Idle when a role does not provide a configured animation', () => {
+    const behavior = usePetBehavior()
+
+    behavior.setRole('broom-witch', ['Idle', 'RunLeft', 'RunRight'])
+    behavior.setMood('happy')
+
+    expect(behavior.animationName.value).toBe('Idle')
+    behavior.dispose()
+  })
 })

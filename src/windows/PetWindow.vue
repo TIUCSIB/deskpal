@@ -7,6 +7,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import Pet from '@/components/Pet.vue'
+import { getPetRole } from '@/config/petRoles'
 import { useAppSettings } from '@/composables/useAppSettings'
 import { usePetBehavior } from '@/composables/usePetBehavior'
 import { usePetInteraction } from '@/composables/usePetInteraction'
@@ -28,7 +29,7 @@ const {
   setHovering,
   setDragging,
   activate,
-  resetForRoleChange,
+  setRole,
   start,
   dispose,
 } = usePetBehavior()
@@ -43,6 +44,7 @@ function broadcastCurrentContext() {
   return broadcastPetContext({
     info: info.value,
     mood: mood.value,
+    roleId: settings.value.pet_role,
     scale: petRef.value?.sizeScale ?? 1,
   })
 }
@@ -91,11 +93,13 @@ watch(
 
 watch(
   () => settings.value.pet_role,
-  async () => {
-    resetForRoleChange()
+  async (roleId) => {
+    const role = getPetRole(roleId)
+    setRole(role.id, role.spritesheet.animations.map((animation) => animation.name))
     await nextTick()
     await broadcastCurrentContext()
   },
+  { immediate: true },
 )
 
 watch(

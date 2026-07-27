@@ -1,3 +1,4 @@
+import type { PetRoleId } from '@/types/pet'
 import type { PetMood, SystemInfo } from '@/types/system'
 
 export type WindowRole = 'pet' | 'chat' | 'info' | 'settings' | 'reminder'
@@ -5,6 +6,7 @@ export type WindowRole = 'pet' | 'chat' | 'info' | 'settings' | 'reminder'
 export interface PetContext {
   info: SystemInfo | null
   mood: PetMood
+  roleId: PetRoleId
   scale: number
 }
 
