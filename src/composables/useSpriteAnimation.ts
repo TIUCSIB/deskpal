@@ -31,7 +31,8 @@ function getBackgroundPosition(
   const cropLeft = sheet.crop?.left ?? 0
   const cropTop = sheet.crop?.top ?? 0
   const x = -(frameIndex * sheet.frameWidth * scale) - (cropLeft * scale)
-  const y = -(animation.row * sheet.frameHeight * scale) - (cropTop * scale)
+  const rowStride = sheet.frameHeight + sheet.rowGap
+  const y = -(animation.row * rowStride * scale) - (cropTop * scale)
   return `${x}px ${y}px`
 }
 

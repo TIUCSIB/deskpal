@@ -9,9 +9,8 @@ const BASE_SPRITESHEET: Omit<PetSpritesheet, 'id' | 'displayName'> = {
   imageWidth: 1536,
   imageHeight: 1872,
   frameWidth: 192,
-  frameHeight: 209,
-  rowGap: 11,
-  crop: { left: 25, right: 25, top: 5, bottom: 5 },
+  frameHeight: 208,
+  rowGap: 0,
   animations: [
     { name: 'Idle', row: 0, frameCount: 6, fps: 4 },
     { name: 'RunRight', row: 1, frameCount: 8, fps: 6 },

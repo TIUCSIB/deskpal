@@ -204,8 +204,8 @@ watch(
     if (!isReady || !width || !height) return
     try {
       await invoke('resize_main_window', {
-        width: Math.round(width),
-        height: Math.round(height),
+        width: Math.ceil(width),
+        height: Math.ceil(height),
       })
       await invoke('resize_info_window', { scale })
       await broadcastCurrentContext()
