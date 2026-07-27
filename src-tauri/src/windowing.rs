@@ -55,15 +55,20 @@ pub fn resize_main_window(app: &AppHandle, width: f64, height: f64) -> Result<()
     Ok(())
 }
 
+pub(crate) fn info_window_size(scale: f64) -> LogicalSize<f64> {
+    let safe_scale = clamp_scale(scale).max(MIN_INFO_SCALE);
+    LogicalSize::new(
+        INFO_CONTENT_WIDTH * safe_scale + INFO_WINDOW_SAFE_PADDING,
+        INFO_CONTENT_HEIGHT * safe_scale + INFO_WINDOW_SAFE_PADDING,
+    )
+}
+
 pub fn resize_info_window(app: &AppHandle, scale: f64) -> Result<(), String> {
     let window = app
         .get_webview_window(INFO_WINDOW)
         .ok_or_else(|| "找不到信息窗口".to_string())?;
-    let safe_scale = clamp_scale(scale).max(MIN_INFO_SCALE);
-    let window_width = INFO_CONTENT_WIDTH * safe_scale + INFO_WINDOW_SAFE_PADDING;
-    let window_height = INFO_CONTENT_HEIGHT * safe_scale + INFO_WINDOW_SAFE_PADDING;
     window
-        .set_size(LogicalSize::new(window_width, window_height))
+        .set_size(info_window_size(scale))
         .map_err(|error| error.to_string())?;
     if window.is_visible().unwrap_or(false) {
         overlay::reposition_overlay(app, INFO_WINDOW)?;

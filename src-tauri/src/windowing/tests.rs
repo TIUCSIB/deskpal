@@ -1,7 +1,7 @@
 use super::placement::{
     anchored_resize_position, bubble_placement, info_placement, Bounds, OverlaySide,
 };
-use super::{clamp_scale, MAX_PET_SCALE, MIN_PET_SCALE};
+use super::{clamp_scale, info_window_size, MAX_PET_SCALE, MIN_PET_SCALE};
 use tauri::{PhysicalPosition, PhysicalSize};
 
 const AREA: Bounds = Bounds {
@@ -18,6 +18,33 @@ fn scale_is_limited_to_supported_range() {
     assert_eq!(clamp_scale(2.0), MAX_PET_SCALE);
     assert_eq!(clamp_scale(f64::NAN), 1.0);
     assert_eq!(clamp_scale(f64::INFINITY), 1.0);
+}
+
+#[test]
+fn info_window_size_keeps_safe_padding_at_minimum_scale() {
+    let size = info_window_size(MIN_PET_SCALE);
+
+    assert_eq!(size.width, 188.96);
+    assert_eq!(size.height, 114.08);
+}
+
+#[test]
+fn info_window_size_matches_default_and_maximum_scales() {
+    let default_size = info_window_size(1.0);
+    let maximum_size = info_window_size(MAX_PET_SCALE);
+
+    assert_eq!(default_size.width, 240.0);
+    assert_eq!(default_size.height, 144.0);
+    assert_eq!(maximum_size.width, 286.4);
+    assert_eq!(maximum_size.height, 171.2);
+}
+
+#[test]
+fn info_window_size_normalizes_non_finite_scale() {
+    let size = info_window_size(f64::INFINITY);
+
+    assert_eq!(size.width, 240.0);
+    assert_eq!(size.height, 144.0);
 }
 
 #[test]
