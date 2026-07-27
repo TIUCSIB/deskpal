@@ -18,8 +18,9 @@ pub const INFO_WINDOW: &str = "info";
 pub const SETTINGS_WINDOW: &str = "settings";
 pub const REMINDER_WINDOW: &str = "reminder";
 
-const INFO_BASE_WIDTH: f64 = 240.0;
-const INFO_BASE_HEIGHT: f64 = 144.0;
+const INFO_CONTENT_WIDTH: f64 = 232.0;
+const INFO_CONTENT_HEIGHT: f64 = 136.0;
+const INFO_WINDOW_SAFE_PADDING: f64 = 8.0;
 const MIN_PET_SCALE: f64 = 0.45;
 const MAX_PET_SCALE: f64 = 1.2;
 const MIN_INFO_SCALE: f64 = 0.78;
@@ -59,11 +60,10 @@ pub fn resize_info_window(app: &AppHandle, scale: f64) -> Result<(), String> {
         .get_webview_window(INFO_WINDOW)
         .ok_or_else(|| "找不到信息窗口".to_string())?;
     let safe_scale = clamp_scale(scale).max(MIN_INFO_SCALE);
+    let window_width = INFO_CONTENT_WIDTH * safe_scale + INFO_WINDOW_SAFE_PADDING;
+    let window_height = INFO_CONTENT_HEIGHT * safe_scale + INFO_WINDOW_SAFE_PADDING;
     window
-        .set_size(LogicalSize::new(
-            INFO_BASE_WIDTH * safe_scale,
-            INFO_BASE_HEIGHT * safe_scale,
-        ))
+        .set_size(LogicalSize::new(window_width, window_height))
         .map_err(|error| error.to_string())?;
     if window.is_visible().unwrap_or(false) {
         overlay::reposition_overlay(app, INFO_WINDOW)?;
