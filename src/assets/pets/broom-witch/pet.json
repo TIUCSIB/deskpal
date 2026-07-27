@@ -1,0 +1,7 @@
+{
+  "id": "broom-witch",
+  "displayName": "Broom Witch",
+  "description": "A tiny young witch courier on a broom with her black cat companion.",
+  "spritesheetPath": "spritesheet.webp",
+  "kind": "person"
+}

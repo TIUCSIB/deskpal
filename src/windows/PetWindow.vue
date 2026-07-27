@@ -184,13 +184,23 @@ watch(
 )
 
 watch(
+  () => settings.value.pet_role,
+  async () => {
+    await nextTick()
+    petRef.value?.playNamedAnimation('Idle')
+    await broadcastCurrentContext()
+  },
+)
+
+watch(
   () => [
     petRef.value?.frameWidth ?? 0,
     petRef.value?.frameHeight ?? 0,
     petRef.value?.sizeScale ?? 1,
+    settings.value.pet_role,
     ready.value,
   ] as const,
-  async ([width, height, scale, isReady]) => {
+  async ([width, height, scale, _role, isReady]) => {
     if (!isReady || !width || !height) return
     try {
       await invoke('resize_main_window', {
@@ -285,6 +295,7 @@ onUnmounted(() => {
     <Pet
       ref="petRef"
       :mood="mood"
+      :role-id="settings.pet_role"
       :size-locked="sizeLocked"
       @press="handlePetPress"
       @activate="handlePetActivate"

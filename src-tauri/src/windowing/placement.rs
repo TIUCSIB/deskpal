@@ -25,17 +25,27 @@ impl From<&PhysicalRect<i32, u32>> for Bounds {
     }
 }
 
-pub fn clamp_position(x: i32, y: i32, size: PhysicalSize<u32>, area: Bounds) -> PhysicalPosition<i32> {
+pub fn clamp_position(
+    x: i32,
+    y: i32,
+    size: PhysicalSize<u32>,
+    area: Bounds,
+) -> PhysicalPosition<i32> {
     let max_x = area.x + area.width.saturating_sub(size.width) as i32;
     let max_y = area.y + area.height.saturating_sub(size.height) as i32;
     PhysicalPosition::new(x.clamp(area.x, max_x), y.clamp(area.y, max_y))
 }
 
-fn rect_visible_area(position: PhysicalPosition<i32>, size: PhysicalSize<u32>, area: Bounds) -> u64 {
+fn rect_visible_area(
+    position: PhysicalPosition<i32>,
+    size: PhysicalSize<u32>,
+    area: Bounds,
+) -> u64 {
     let area_right = area.x + area.width as i32;
     let area_bottom = area.y + area.height as i32;
     let visible_width = (position.x + size.width as i32).min(area_right) - position.x.max(area.x);
-    let visible_height = (position.y + size.height as i32).min(area_bottom) - position.y.max(area.y);
+    let visible_height =
+        (position.y + size.height as i32).min(area_bottom) - position.y.max(area.y);
     if visible_width <= 0 || visible_height <= 0 {
         return 0;
     }
@@ -48,12 +58,12 @@ fn rect_overlap_area(
     second_position: PhysicalPosition<i32>,
     second_size: PhysicalSize<u32>,
 ) -> u64 {
-    let overlap_width =
-        (first_position.x + first_size.width as i32).min(second_position.x + second_size.width as i32)
-            - first_position.x.max(second_position.x);
-    let overlap_height =
-        (first_position.y + first_size.height as i32).min(second_position.y + second_size.height as i32)
-            - first_position.y.max(second_position.y);
+    let overlap_width = (first_position.x + first_size.width as i32)
+        .min(second_position.x + second_size.width as i32)
+        - first_position.x.max(second_position.x);
+    let overlap_height = (first_position.y + first_size.height as i32)
+        .min(second_position.y + second_size.height as i32)
+        - first_position.y.max(second_position.y);
     if overlap_width <= 0 || overlap_height <= 0 {
         return 0;
     }
@@ -72,7 +82,11 @@ fn inset_bounds(area: Bounds, margin: i32) -> Bounds {
     }
 }
 
-fn min_edge_clearance(position: PhysicalPosition<i32>, size: PhysicalSize<u32>, area: Bounds) -> i32 {
+fn min_edge_clearance(
+    position: PhysicalPosition<i32>,
+    size: PhysicalSize<u32>,
+    area: Bounds,
+) -> i32 {
     let right = area.x + area.width as i32 - (position.x + size.width as i32);
     let bottom = area.y + area.height as i32 - (position.y + size.height as i32);
     (position.x - area.x)

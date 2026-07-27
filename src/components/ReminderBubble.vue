@@ -1,0 +1,166 @@
+<script setup lang="ts">
+/** ReminderBubble.vue - 桌宠提醒气泡 */
+import { BellIcon } from '@lucide/vue'
+
+const props = defineProps<{
+  message: string
+  compact: boolean
+  snoozeText: string
+}>()
+
+const emit = defineEmits<{
+  dismiss: []
+  snooze: []
+}>()
+</script>
+
+<template>
+  <section class="reminder-bubble" aria-label="桌宠提醒">
+    <div class="reminder-bubble__surface">
+      <div class="reminder-bubble__header">
+        <BellIcon class="reminder-bubble__icon" />
+        <span>提醒</span>
+      </div>
+
+      <p class="reminder-bubble__message" :class="{ 'reminder-bubble__message--compact': props.compact }">
+        {{ props.message }}
+      </p>
+
+      <div class="reminder-bubble__footer">
+        <span class="reminder-bubble__hint">{{ props.snoozeText }}</span>
+        <div class="reminder-bubble__actions">
+          <button
+            class="reminder-bubble__button reminder-bubble__button--secondary"
+            type="button"
+            title="稍后提醒"
+            @click="emit('snooze')"
+          >
+            稍后
+          </button>
+          <button
+            class="reminder-bubble__button reminder-bubble__button--primary"
+            type="button"
+            title="知道了"
+            @click="emit('dismiss')"
+          >
+            ✓
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.reminder-bubble {
+  width: 232px;
+  max-width: 100%;
+  color: #1c1c1e;
+  pointer-events: auto;
+}
+
+.reminder-bubble__surface {
+  width: 100%;
+  min-height: 104px;
+  display: grid;
+  gap: 7px;
+  padding: 8px 6px 8px 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(60, 60, 67, 0.16);
+  border-radius: 20px;
+  transition:
+    min-height 180ms ease,
+    padding 180ms ease,
+    border-radius 180ms ease,
+    opacity 160ms ease;
+  animation: reminder-appear 240ms cubic-bezier(0.2, 1.25, 0.32, 1);
+}
+
+.reminder-bubble__header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #3a3a3c;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.reminder-bubble__icon {
+  width: 14px;
+  height: 14px;
+}
+
+.reminder-bubble__message {
+  display: -webkit-box;
+  min-height: 32px;
+  margin: 0;
+  overflow: hidden;
+  color: #1c1c1e;
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reminder-bubble__message--compact {
+  font-size: 12px;
+}
+
+.reminder-bubble__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-bubble__hint {
+  min-width: 0;
+  overflow: hidden;
+  color: #8e8e93;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-bubble__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reminder-bubble__button {
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.reminder-bubble__button--secondary {
+  width: 44px;
+  color: #007aff;
+  background: #f2f2f7;
+}
+
+.reminder-bubble__button--primary {
+  width: 30px;
+  color: #fff;
+  background: #007aff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+@keyframes reminder-appear {
+  0% { opacity: 0; transform: translateY(8px) scale(0.88); }
+  70% { opacity: 1; transform: translateY(-1px) scale(1.025); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+</style>

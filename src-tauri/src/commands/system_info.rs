@@ -83,30 +83,30 @@ impl SystemMonitor {
             0.0
         };
 
-        let (storage_total, storage_available) = data
-            .disks
-            .iter()
-            .fold((0_u64, 0_u64), |(total, available), disk| {
-                (
-                    total.saturating_add(disk.total_space()),
-                    available.saturating_add(disk.available_space()),
-                )
-            });
+        let (storage_total, storage_available) =
+            data.disks
+                .iter()
+                .fold((0_u64, 0_u64), |(total, available), disk| {
+                    (
+                        total.saturating_add(disk.total_space()),
+                        available.saturating_add(disk.available_space()),
+                    )
+                });
         let disk_usage = if storage_total > 0 {
             storage_total.saturating_sub(storage_available) as f64 / storage_total as f64 * 100.0
         } else {
             0.0
         };
 
-        let (network_down_bytes, network_up_bytes) = data
-            .networks
-            .iter()
-            .fold((0_u64, 0_u64), |(down, up), (_, network)| {
-                (
-                    down.saturating_add(network.received()),
-                    up.saturating_add(network.transmitted()),
-                )
-            });
+        let (network_down_bytes, network_up_bytes) =
+            data.networks
+                .iter()
+                .fold((0_u64, 0_u64), |(down, up), (_, network)| {
+                    (
+                        down.saturating_add(network.received()),
+                        up.saturating_add(network.transmitted()),
+                    )
+                });
 
         Ok(SystemInfo {
             cpu_usage: round_f32(cpu_usage),

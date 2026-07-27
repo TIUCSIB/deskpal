@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Emitter, State};
 
 use crate::{
-    parse_chat_shortcut,
+    parse_chat_shortcut, reminder,
     settings::{AppSettings, InfoMode, SavedPosition, SavedWindowBounds, SettingsState},
     sync_autostart, sync_chat_shortcut, windowing,
 };
@@ -12,6 +12,12 @@ fn emit_settings(app: &AppHandle, settings: &AppSettings) {
     if let Err(error) = app.emit(SETTINGS_UPDATED_EVENT, settings) {
         eprintln!("无法同步应用设置事件: {error}");
     }
+}
+
+fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
+    reminder::sync_from_settings(app)?;
+    emit_settings(app, &settings);
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -25,9 +31,16 @@ pub fn save_pet_scale(
     settings: State<'_, SettingsState>,
     scale: f64,
 ) -> Result<AppSettings, String> {
-    let updated = settings.set_pet_scale(scale)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, settings.set_pet_scale(scale)?)
+}
+
+#[tauri::command]
+pub fn set_pet_role(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    role: String,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_pet_role(role)?)
 }
 
 #[tauri::command]
@@ -37,9 +50,10 @@ pub fn save_main_window_position(
     x: i32,
     y: i32,
 ) -> Result<AppSettings, String> {
-    let updated = settings.save_main_position_throttled(SavedPosition { x, y })?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(
+        &app,
+        settings.save_main_position_throttled(SavedPosition { x, y })?,
+    )
 }
 
 #[tauri::command]
@@ -50,8 +64,7 @@ pub fn set_info_mode(
 ) -> Result<AppSettings, String> {
     let updated = settings.set_info_mode(mode)?;
     windowing::sync_info_window_visibility(&app)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -60,9 +73,7 @@ pub fn set_size_locked(
     settings: State<'_, SettingsState>,
     locked: bool,
 ) -> Result<AppSettings, String> {
-    let updated = settings.set_size_locked(locked)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, settings.set_size_locked(locked)?)
 }
 
 #[tauri::command]
@@ -80,8 +91,7 @@ pub fn set_shortcut_enabled(
     if !applied && current.shortcut_enabled != updated.shortcut_enabled {
         eprintln!("聊天快捷键未能按请求状态应用");
     }
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -98,16 +108,11 @@ pub fn set_chat_shortcut(
 
     let current = settings.get()?;
     let mut updated = settings.set_chat_shortcut(trimmed.to_string())?;
-    if updated.shortcut_enabled {
-        let applied = sync_chat_shortcut(&app, &updated.chat_shortcut, true)?;
-        if !applied {
-            let previous_shortcut = current.chat_shortcut;
-            let _ = settings.set_chat_shortcut(previous_shortcut)?;
-            updated = settings.set_shortcut_enabled(false)?;
-        }
+    if updated.shortcut_enabled && !sync_chat_shortcut(&app, &updated.chat_shortcut, true)? {
+        let _ = settings.set_chat_shortcut(current.chat_shortcut)?;
+        updated = settings.set_shortcut_enabled(false)?;
     }
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -117,9 +122,7 @@ pub fn set_launch_at_startup(
     enabled: bool,
 ) -> Result<AppSettings, String> {
     sync_autostart(&app, enabled)?;
-    let updated = settings.set_launch_at_startup(enabled)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, settings.set_launch_at_startup(enabled)?)
 }
 
 #[tauri::command]
@@ -130,8 +133,7 @@ pub fn set_main_window_always_on_top(
 ) -> Result<AppSettings, String> {
     let updated = settings.set_main_window_always_on_top(enabled)?;
     windowing::apply_main_window_settings(&app, &updated)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -142,8 +144,43 @@ pub fn set_main_window_show_in_taskbar(
 ) -> Result<AppSettings, String> {
     let updated = settings.set_main_window_show_in_taskbar(enabled)?;
     windowing::apply_main_window_settings(&app, &updated)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
+}
+
+#[tauri::command]
+pub fn set_reminder_enabled(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    enabled: bool,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_enabled(enabled)?)
+}
+
+#[tauri::command]
+pub fn set_reminder_message(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    message: String,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_message(message)?)
+}
+
+#[tauri::command]
+pub fn set_reminder_interval(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    interval_minutes: u32,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_interval(interval_minutes)?)
+}
+
+#[tauri::command]
+pub fn set_reminder_snooze_minutes(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    snooze_minutes: u32,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_snooze_minutes(snooze_minutes)?)
 }
 
 #[tauri::command]
@@ -153,8 +190,7 @@ pub fn reset_main_window_position(
 ) -> Result<AppSettings, String> {
     let updated = settings.reset_main_position()?;
     windowing::reset_main_window_position(&app)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -166,9 +202,15 @@ pub fn save_settings_window_bounds(
     width: u32,
     height: u32,
 ) -> Result<AppSettings, String> {
-    let updated = settings.save_settings_window_bounds_throttled(SavedWindowBounds { x, y, width, height })?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(
+        &app,
+        settings.save_settings_window_bounds_throttled(SavedWindowBounds {
+            x,
+            y,
+            width,
+            height,
+        })?,
+    )
 }
 
 #[tauri::command]
@@ -178,8 +220,7 @@ pub fn reset_settings_window_bounds(
 ) -> Result<AppSettings, String> {
     let updated = settings.reset_settings_window_bounds()?;
     windowing::reset_settings_window(&app)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }
 
 #[tauri::command]
@@ -192,8 +233,7 @@ pub fn reset_all_settings(
     windowing::restore_main_window_position(&app, None)?;
     windowing::apply_main_window_settings(&app, &updated)?;
     if updated.shortcut_enabled {
-        let applied = sync_chat_shortcut(&app, &updated.chat_shortcut, true)?;
-        if !applied {
+        if !sync_chat_shortcut(&app, &updated.chat_shortcut, true)? {
             updated = settings.set_shortcut_enabled(false)?;
         }
     } else {
@@ -201,6 +241,5 @@ pub fn reset_all_settings(
     }
     windowing::reset_settings_window(&app)?;
     windowing::sync_info_window_visibility(&app)?;
-    emit_settings(&app, &updated);
-    Ok(updated)
+    finish_update(&app, updated)
 }

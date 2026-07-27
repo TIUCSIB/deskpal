@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import ReminderSettingsSection from '@/components/settings/ReminderSettingsSection.vue'
+import RoleSettingsSection from '@/components/settings/RoleSettingsSection.vue'
 import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import SettingsShell from '@/components/settings/SettingsShell.vue'
@@ -55,6 +57,18 @@ const {
   resetPosition,
   resetSettingsWindowBounds,
   resetAllSettings,
+  intervalOptions,
+  snoozeOptions,
+  reminderMessageDraft,
+  handleReminderEnabledChange,
+  handleReminderIntervalChange,
+  handleReminderSnoozeChange,
+  handleReminderDraftInput,
+  applyReminderMessage,
+  previewReminder,
+  petRoles,
+  selectedRole,
+  handlePetRoleChange,
 } = useSettingsWindow()
 
 const INFO_MODE_ID = 'settings-info-mode'
@@ -78,18 +92,12 @@ function handleScaleValue(value: number[] | undefined) {
 
     <Tabs default-value="display" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
       <TabsList variant="line" class="w-full justify-start border-b border-border/70 bg-transparent p-0">
-        <TabsTrigger value="display" class="rounded-none px-4 py-2 text-[13px]">
-          显示
-        </TabsTrigger>
-        <TabsTrigger value="size" class="rounded-none px-4 py-2 text-[13px]">
-          大小
-        </TabsTrigger>
-        <TabsTrigger value="shortcut" class="rounded-none px-4 py-2 text-[13px]">
-          快捷键
-        </TabsTrigger>
-        <TabsTrigger value="system" class="rounded-none px-4 py-2 text-[13px]">
-          系统
-        </TabsTrigger>
+        <TabsTrigger value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
+        <TabsTrigger value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
+        <TabsTrigger value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
+        <TabsTrigger value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
+        <TabsTrigger value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
+        <TabsTrigger value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
       </TabsList>
 
       <TabsContent value="display" class="min-h-0 data-[state=inactive]:hidden">
@@ -97,13 +105,8 @@ function handleScaleValue(value: number[] | undefined) {
           <div class="pr-2">
             <SettingsSection title="显示">
               <div class="grid gap-2">
-                <Label :for="INFO_MODE_ID" class="text-sm leading-5 text-foreground">
-                  信息窗模式
-                </Label>
-                <Select
-                  :model-value="settings.info_mode"
-                  @update:model-value="(value) => value && handleInfoModeValue(String(value))"
-                >
+                <Label :for="INFO_MODE_ID" class="text-sm leading-5 text-foreground">信息窗模式</Label>
+                <Select :model-value="settings.info_mode" @update:model-value="(value) => value && handleInfoModeValue(String(value))">
                   <SelectTrigger :id="INFO_MODE_ID" class="h-10 w-full rounded-xl bg-background/70">
                     <SelectValue placeholder="请选择信息窗模式" />
                   </SelectTrigger>
@@ -138,9 +141,7 @@ function handleScaleValue(value: number[] | undefined) {
             <SettingsSection title="大小">
               <div class="grid gap-3">
                 <div class="flex items-center justify-between gap-3">
-                  <Label :for="SCALE_ID" class="text-sm leading-5 text-foreground">
-                    宠物缩放
-                  </Label>
+                  <Label :for="SCALE_ID" class="text-sm leading-5 text-foreground">宠物缩放</Label>
                   <strong class="text-sm font-semibold text-foreground">{{ scaleText }}</strong>
                 </div>
                 <Slider
@@ -183,9 +184,7 @@ function handleScaleValue(value: number[] | undefined) {
               />
 
               <div class="grid gap-2">
-                <Label :for="SHORTCUT_ID" class="text-sm leading-5 text-foreground">
-                  快捷键组合
-                </Label>
+                <Label :for="SHORTCUT_ID" class="text-sm leading-5 text-foreground">快捷键组合</Label>
                 <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                   <Input
                     :id="SHORTCUT_ID"
@@ -194,9 +193,7 @@ function handleScaleValue(value: number[] | undefined) {
                     placeholder="例如 Ctrl+Alt+D"
                     @update:model-value="(value) => handleShortcutDraftInput(String(value))"
                   />
-                  <Button class="h-10 rounded-xl px-4" @click="applyShortcut">
-                    应用
-                  </Button>
+                  <Button class="h-10 rounded-xl px-4" @click="applyShortcut">应用</Button>
                 </div>
               </div>
 
@@ -205,6 +202,40 @@ function handleScaleValue(value: number[] | undefined) {
                 <p>{{ shortcutSummary }}</p>
               </div>
             </SettingsSection>
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="reminder" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <ReminderSettingsSection
+              :enabled="settings.reminder.enabled"
+              :message-draft="reminderMessageDraft"
+              :interval-minutes="settings.reminder.interval_minutes"
+              :snooze-minutes="settings.reminder.snooze_minutes"
+              :interval-options="intervalOptions"
+              :snooze-options="snoozeOptions"
+              @update:enabled="handleReminderEnabledChange"
+              @update:message-draft="handleReminderDraftInput"
+              @apply-message="applyReminderMessage"
+              @update:interval="handleReminderIntervalChange"
+              @update:snooze="handleReminderSnoozeChange"
+              @preview="previewReminder"
+            />
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="role" class="min-h-0 data-[state=inactive]:hidden">
+        <ScrollArea class="h-full">
+          <div class="pr-2">
+            <RoleSettingsSection
+              :selected-role-id="settings.pet_role"
+              :selected-role="selectedRole"
+              :roles="petRoles"
+              @update:selected-role="handlePetRoleChange"
+            />
           </div>
         </ScrollArea>
       </TabsContent>
@@ -221,9 +252,7 @@ function handleScaleValue(value: number[] | undefined) {
               />
 
               <SettingsActionRow wrap align="start">
-                <Button variant="outline" class="rounded-xl" @click="resetPosition">
-                  重置桌宠位置
-                </Button>
+                <Button variant="outline" class="rounded-xl" @click="resetPosition">重置桌宠位置</Button>
                 <Button variant="outline" class="rounded-xl" @click="resetSettingsWindowBounds">
                   重置设置窗口位置和大小
                 </Button>
@@ -241,7 +270,7 @@ function handleScaleValue(value: number[] | undefined) {
                     <AlertDialogHeader>
                       <AlertDialogTitle>确定要恢复全部默认设置吗？</AlertDialogTitle>
                       <AlertDialogDescription>
-                        这会重置桌宠位置、大小、快捷键和设置窗口布局。
+                        这会重置桌宠位置、大小、快捷键、提醒和设置窗口布局。
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

@@ -4,7 +4,14 @@ import { toast } from 'vue-sonner'
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi'
 import { getCurrentWindow, currentMonitor, primaryMonitor } from '@tauri-apps/api/window'
 import { useAppSettings } from '@/composables/useAppSettings'
-import { centerPosition, clampPosition, normalizeWindowSize, type WindowRect } from '@/composables/settingsWindowGeometry'
+import { useReminderSettings } from '@/composables/useReminderSettings'
+import { useRoleSettings } from '@/composables/useRoleSettings'
+import {
+  centerPosition,
+  clampPosition,
+  normalizeWindowSize,
+  type WindowRect,
+} from '@/composables/settingsWindowGeometry'
 import {
   DEFAULT_CHAT_SHORTCUT,
   DEFAULT_PET_SCALE,
@@ -27,7 +34,6 @@ export function useSettingsWindow() {
     { label: '始终显示', value: 'always' },
     { label: '隐藏', value: 'hidden' },
   ]
-
   let unlistenClose: Unlisten = null
   let unlistenMoved: Unlisten = null
   let unlistenResized: Unlisten = null
@@ -40,28 +46,12 @@ export function useSettingsWindow() {
     return `当前快捷键：${settings.value.chat_shortcut}`
   })
 
-  watch(
-    () => settings.value.chat_shortcut,
-    (shortcut) => {
-      shortcutDraft.value = shortcut
-    },
-    { immediate: true },
-  )
+  watch(() => settings.value.chat_shortcut, (shortcut) => {
+    shortcutDraft.value = shortcut
+  }, { immediate: true })
 
   function setFeedback(text: string) {
-    if (!text) return
-    toast(text)
-  }
-
-  function infoModeLabel(mode: InfoMode) {
-    switch (mode) {
-      case 'always':
-        return '始终显示'
-      case 'hidden':
-        return '隐藏'
-      default:
-        return '自动显示'
-    }
+    if (text) toast(text)
   }
 
   function clearSaveBoundsTimer() {
@@ -110,7 +100,6 @@ export function useSettingsWindow() {
   async function resolveMonitorRect(): Promise<WindowRect | null> {
     const monitor = (await currentMonitor()) ?? (await primaryMonitor())
     if (!monitor) return null
-
     return {
       x: monitor.position.x,
       y: monitor.position.y,
@@ -122,7 +111,6 @@ export function useSettingsWindow() {
   async function restoreWindowBounds() {
     const bounds = settings.value.settings_window_bounds
     if (!bounds) return
-
     const size = normalizeWindowSize(bounds.width, bounds.height)
     const monitorRect = await resolveMonitorRect()
     const nextPosition = monitorRect
@@ -130,37 +118,34 @@ export function useSettingsWindow() {
         ? centerPosition(size.width, size.height, monitorRect)
         : clampPosition(bounds.x, bounds.y, size.width, size.height, monitorRect)
       : { x: bounds.x, y: bounds.y }
-    const recovered =
-      size.usedDefault || nextPosition.x !== bounds.x || nextPosition.y !== bounds.y
-
+    const recovered = size.usedDefault || nextPosition.x !== bounds.x || nextPosition.y !== bounds.y
     await withBoundsRestoreLock(async () => {
       await currentWindow.setSize(new PhysicalSize(size.width, size.height))
       await currentWindow.setPosition(new PhysicalPosition(nextPosition.x, nextPosition.y))
     })
-
-    if (recovered) {
-      setFeedback('检测到旧的设置窗口位置或大小异常，已自动恢复到可见范围')
-    }
+    if (recovered) setFeedback('检测到旧的设置窗口位置或大小异常，已自动恢复到可见范围')
   }
 
   async function invokeSetting(command: string, payload?: Record<string, unknown>) {
     try {
       const updated = await invoke<AppSettings>(command, payload)
       settings.value = updated
-      if (command !== 'save_settings_window_bounds') {
-        setFeedback('')
-      }
       return updated
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '设置保存失败'
-      toast.error(message)
+      toast.error(error instanceof Error ? error.message : '设置保存失败')
       throw error
     }
   }
 
+  const reminderSettings = useReminderSettings(settings, invokeSetting, setFeedback)
+  const roleSettings = useRoleSettings(settings, invokeSetting, setFeedback)
+  watch(() => settings.value.reminder.message, () => {
+    reminderSettings.syncDraft()
+  }, { immediate: true })
+
   async function handleInfoModeChange(mode: InfoMode) {
     const updated = await invokeSetting('set_info_mode', { mode })
-    setFeedback(`信息窗已切换为${infoModeLabel(updated.info_mode)}`)
+    setFeedback(`信息窗已切换为${updated.info_mode === 'always' ? '始终显示' : updated.info_mode === 'hidden' ? '隐藏' : '自动显示'}`)
   }
 
   async function handleScaleChange(scale: number) {
@@ -175,10 +160,7 @@ export function useSettingsWindow() {
 
   async function handleShortcutEnabledChange(enabled: boolean) {
     const updated = await invokeSetting('set_shortcut_enabled', { enabled })
-    if (enabled && !updated.shortcut_enabled) {
-      setFeedback('快捷键被占用或注册失败，已自动关闭')
-      return
-    }
+    if (enabled && !updated.shortcut_enabled) return setFeedback('快捷键被占用或注册失败，已自动关闭')
     setFeedback(enabled ? '聊天快捷键已开启' : '聊天快捷键已关闭')
   }
 
@@ -199,17 +181,9 @@ export function useSettingsWindow() {
 
   async function applyShortcut() {
     const shortcut = shortcutDraft.value.trim()
-    if (!shortcut) {
-      setFeedback('请输入快捷键')
-      return
-    }
-
+    if (!shortcut) return setFeedback('请输入快捷键')
     const updated = await invokeSetting('set_chat_shortcut', { shortcut })
-    if (updated.chat_shortcut !== shortcut) {
-      setFeedback('快捷键未能应用，已恢复到上一个可用值')
-      return
-    }
-
+    if (updated.chat_shortcut !== shortcut) return setFeedback('快捷键未能应用，已恢复到上一个可用值')
     setFeedback(updated.shortcut_enabled ? '快捷键已更新并立即生效' : '快捷键已保存，启用后生效')
   }
 
@@ -228,16 +202,12 @@ export function useSettingsWindow() {
   }
 
   async function resetSettingsWindowBounds() {
-    await withBoundsRestoreLock(async () => {
-      await invokeSetting('reset_settings_window_bounds')
-    })
+    await withBoundsRestoreLock(() => invokeSetting('reset_settings_window_bounds'))
     setFeedback('设置窗口已恢复默认位置和大小')
   }
 
   async function resetAllSettings() {
-    await withBoundsRestoreLock(async () => {
-      await invokeSetting('reset_all_settings')
-    })
+    await withBoundsRestoreLock(() => invokeSetting('reset_all_settings'))
     setFeedback('已恢复全部默认设置')
   }
 
@@ -248,12 +218,8 @@ export function useSettingsWindow() {
       event.preventDefault()
       void closeWindow()
     })
-    unlistenMoved = await currentWindow.onMoved(() => {
-      scheduleSaveBounds()
-    })
-    unlistenResized = await currentWindow.onResized(() => {
-      scheduleSaveBounds()
-    })
+    unlistenMoved = await currentWindow.onMoved(scheduleSaveBounds)
+    unlistenResized = await currentWindow.onResized(scheduleSaveBounds)
   })
 
   onUnmounted(() => {
@@ -284,5 +250,7 @@ export function useSettingsWindow() {
     resetPosition,
     resetSettingsWindowBounds,
     resetAllSettings,
+    ...reminderSettings,
+    ...roleSettings,
   }
 }

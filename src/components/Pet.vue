@@ -3,18 +3,23 @@
  * Pet.vue - 桌宠角色（精灵表动画）
  * 使用像素命中确保只有角色非透明区域响应交互。
  */
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
+import { DEFAULT_PET_ROLE, getPetRole } from '@/config/petRoles'
+import type { PetRoleId } from '@/types/pet'
 import type { PetMood } from '@/types/system'
 import { useSpriteAnimation } from '@/composables/useSpriteAnimation'
 import { usePixelHitTest } from '@/composables/usePixelHitTest'
-import spritesheetUrl from '@/assets/pet/spritesheet.webp'
 
 const props = withDefaults(
   defineProps<{
     mood: PetMood
+    roleId?: PetRoleId
     sizeLocked?: boolean
   }>(),
-  { sizeLocked: false },
+  {
+    roleId: DEFAULT_PET_ROLE,
+    sizeLocked: false,
+  },
 )
 
 const emit = defineEmits<{
@@ -25,6 +30,8 @@ const emit = defineEmits<{
   restoreDefaultSize: []
 }>()
 
+const role = computed(() => getPetRole(props.roleId))
+const spritesheetUrl = computed(() => role.value.spritesheetUrl)
 const {
   backgroundPosition,
   backgroundSize,
@@ -34,7 +41,7 @@ const {
   setMoodPool,
   setSizeScale,
   playNamedAnimation,
-} = useSpriteAnimation()
+} = useSpriteAnimation(role)
 
 const { hitTest } = usePixelHitTest(
   spritesheetUrl,

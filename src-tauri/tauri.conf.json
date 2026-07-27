@@ -58,6 +58,21 @@
         "visible": false
       },
       {
+        "label": "reminder",
+        "title": "桌宠提醒",
+        "url": "index.html?window=reminder",
+        "width": 248,
+        "height": 132,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": true,
+        "visible": false
+      },
+      {
         "label": "settings",
         "title": "桌宠设置",
         "url": "index.html?window=settings",
