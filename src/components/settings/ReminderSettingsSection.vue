@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /** ReminderSettingsSection.vue - 多提醒列表、预设与编辑入口 */
+import { ref } from 'vue'
+import { PlusIcon } from '@lucide/vue'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import ReminderEditor from '@/components/settings/ReminderEditor.vue'
 import ReminderListItem from '@/components/settings/ReminderListItem.vue'
 import ReminderPresetGrid from '@/components/settings/ReminderPresetGrid.vue'
-import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import type { ReminderDraft } from '@/composables/useReminderSettings'
 import type { ReminderPreset } from '@/config/reminderPresets'
@@ -41,13 +42,28 @@ const emit = defineEmits<{
   cancelDelete: []
   confirmDelete: []
 }>()
+
+const isConfirmingDelete = ref(false)
+
+function handleDeleteDialogOpen(open: boolean) {
+  if (!open && !isConfirmingDelete.value) emit('cancelDelete')
+  isConfirmingDelete.value = false
+}
+
+function confirmDelete() {
+  isConfirmingDelete.value = true
+  emit('confirmDelete')
+}
 </script>
 
 <template>
   <SettingsSection title="提醒">
     <div class="flex items-center justify-between gap-3">
       <p class="m-0 text-sm leading-5 text-muted-foreground">可添加间隔或固定时间提醒。</p>
-      <Button size="sm" class="shrink-0 rounded-xl" :disabled="Boolean(props.draft)" @click="emit('create')">添加提醒</Button>
+      <Button size="sm" class="shrink-0 rounded-xl" :disabled="Boolean(props.draft)" @click="emit('create')">
+        <PlusIcon class="size-3.5" aria-hidden="true" />
+        添加提醒
+      </Button>
     </div>
     <div v-if="!props.draft" class="grid gap-2"><p class="m-0 text-xs text-muted-foreground">一键添加常用提醒</p><ReminderPresetGrid :presets="props.presets" @select="emit('createPreset', $event)" /></div>
 
@@ -69,10 +85,9 @@ const emit = defineEmits<{
 
     <div v-if="props.reminders.length" class="grid gap-2"><ReminderListItem v-for="reminder in props.reminders" :key="reminder.id" :reminder="reminder" :schedule-text="props.formatSchedule(reminder.schedule)" :pause-text="props.formatPause(reminder)" @update:enabled="emit('update:enabled', reminder.id, $event)" @edit="emit('edit', reminder)" @preview="emit('preview', reminder.id)" @delete="emit('requestDelete', reminder)" /></div>
     <div v-else class="rounded-xl border border-dashed border-border px-3 py-5 text-center text-sm text-muted-foreground">暂无提醒，添加一条开始使用。</div>
-    <SettingsActionRow v-if="props.reminders.length && !props.draft" align="start"><Button variant="outline" class="rounded-xl" @click="emit('create')">添加另一条提醒</Button></SettingsActionRow>
   </SettingsSection>
 
-  <AlertDialog :open="Boolean(props.deleteTarget)" @update:open="(open) => !open && emit('cancelDelete')">
-    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>删除这条提醒吗？</AlertDialogTitle><AlertDialogDescription>{{ props.deleteTarget?.message }} 将不再触发，此操作无法撤销。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel @click="emit('cancelDelete')">取消</AlertDialogCancel><AlertDialogAction variant="destructive" @click="emit('confirmDelete')">删除</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+  <AlertDialog :open="Boolean(props.deleteTarget)" @update:open="handleDeleteDialogOpen">
+    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>删除这条提醒吗？</AlertDialogTitle><AlertDialogDescription>{{ props.deleteTarget?.message }} 将不再触发，此操作无法撤销。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel @click="emit('cancelDelete')">取消</AlertDialogCancel><AlertDialogAction variant="destructive" @click.capture="confirmDelete">删除</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
   </AlertDialog>
 </template>

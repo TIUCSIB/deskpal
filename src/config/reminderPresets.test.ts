@@ -22,4 +22,10 @@ describe('REMINDER_PRESETS', () => {
       repeat: { type: 'weekdays' },
     })
   })
+
+  it('gives every preset a unique semantic icon', () => {
+    const icons = REMINDER_PRESETS.map((preset) => preset.icon)
+
+    expect(new Set(icons)).toHaveLength(REMINDER_PRESETS.length)
+  })
 })

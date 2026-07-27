@@ -82,4 +82,42 @@ describe('useReminderSettings', () => {
     })
     expect(setFeedback).toHaveBeenCalledWith('免打扰时段已保存')
   })
+
+  it('keeps the selected reminder until deletion completes', async () => {
+    const { state, invokeSetting, setFeedback } = createHarness()
+    const reminder = {
+      id: 'water-1',
+      enabled: true,
+      message: '喝水',
+      schedule: { type: 'interval' as const, interval_minutes: 30 },
+      snooze_minutes: 5,
+      paused_until: null,
+    }
+
+    state.requestDelete(reminder)
+    expect(state.deleteTarget.value).toEqual(reminder)
+
+    await state.confirmDelete()
+
+    expect(invokeSetting).toHaveBeenCalledWith('delete_reminder', { id: 'water-1' })
+    expect(state.deleteTarget.value).toBeNull()
+    expect(setFeedback).toHaveBeenCalledWith('提醒已删除')
+  })
+
+  it('clears a pending deletion without calling the backend when cancelled', () => {
+    const { state, invokeSetting } = createHarness()
+    state.requestDelete({
+      id: 'water-1',
+      enabled: true,
+      message: '喝水',
+      schedule: { type: 'interval', interval_minutes: 30 },
+      snooze_minutes: 5,
+      paused_until: null,
+    })
+
+    state.cancelDelete()
+
+    expect(state.deleteTarget.value).toBeNull()
+    expect(invokeSetting).not.toHaveBeenCalled()
+  })
 })

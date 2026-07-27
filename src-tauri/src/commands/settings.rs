@@ -184,8 +184,14 @@ pub fn delete_reminder(
     id: String,
 ) -> Result<AppSettings, String> {
     let updated = settings.delete_reminder(id.clone())?;
-    reminder::remove_reminder(&app, &id)?;
-    finish_update(&app, updated)
+    if let Err(error) = reminder::remove_reminder(&app, &id) {
+        eprintln!("删除提醒后的运行状态同步失败: {error}");
+    }
+    if let Err(error) = reminder::sync_from_settings(&app) {
+        eprintln!("删除提醒后的调度同步失败: {error}");
+    }
+    emit_settings(&app, &updated);
+    Ok(updated)
 }
 
 #[tauri::command]
