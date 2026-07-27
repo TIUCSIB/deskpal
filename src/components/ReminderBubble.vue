@@ -61,7 +61,6 @@ const emit = defineEmits<{
 
 .reminder-bubble__surface {
   width: 100%;
-  min-height: 104px;
   display: grid;
   gap: 7px;
   padding: 8px 6px 8px 12px;
@@ -70,7 +69,6 @@ const emit = defineEmits<{
   border: 1px solid rgba(60, 60, 67, 0.16);
   border-radius: 20px;
   transition:
-    min-height 180ms ease,
     padding 180ms ease,
     border-radius 180ms ease,
     opacity 160ms ease;
@@ -93,7 +91,6 @@ const emit = defineEmits<{
 
 .reminder-bubble__message {
   display: -webkit-box;
-  min-height: 32px;
   margin: 0;
   overflow: hidden;
   color: #1c1c1e;
