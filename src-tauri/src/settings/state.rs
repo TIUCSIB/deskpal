@@ -81,9 +81,6 @@ impl SettingsState {
     pub fn set_pet_scale(&self, scale: f64) -> Result<AppSettings, String> {
         self.update(|s| s.pet_scale = scale)
     }
-    pub fn set_pet_role(&self, role: String) -> Result<AppSettings, String> {
-        self.update(|s| s.pet_role = normalize_pet_role(role))
-    }
     pub fn set_validated_pet_role(&self, role: String) -> Result<AppSettings, String> {
         self.update(|settings| settings.pet_role = role)
     }

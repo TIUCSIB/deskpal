@@ -6,14 +6,16 @@ use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 
 use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH};
 pub use overlay::{
-    hide_chat_window, reposition_visible_overlays, request_info_window_visibility,
-    show_chat_window, show_info_window_now, sync_info_window_visibility,
-    sync_reminder_window_visibility, sync_system_feedback_window_visibility, toggle_chat_window,
+    hide_chat_window, hide_context_menu, reposition_visible_overlays,
+    request_info_window_visibility, show_chat_window, show_context_menu, show_info_window_now,
+    sync_info_window_visibility, sync_reminder_window_visibility,
+    sync_system_feedback_window_visibility, toggle_chat_window,
 };
 use placement::{current_work_area, reclamped_main_position, resize_plan, restored_main_position};
 pub use state::OverlayState;
 
 pub const MAIN_WINDOW: &str = "main";
+pub const CONTEXT_MENU_WINDOW: &str = "context-menu";
 pub const CHAT_WINDOW: &str = "chat";
 pub const INFO_WINDOW: &str = "info";
 pub const SETTINGS_WINDOW: &str = "settings";

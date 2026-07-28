@@ -7,8 +7,12 @@ use crate::{
 };
 
 use super::{
-    placement::{bubble_placement, current_work_area, info_placement, OverlayPlacement},
-    OverlayState, CHAT_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW, SYSTEM_FEEDBACK_WINDOW,
+    placement::{
+        bubble_placement, context_menu_position, current_work_area, info_placement,
+        OverlayPlacement,
+    },
+    OverlayState, CHAT_WINDOW, CONTEXT_MENU_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW,
+    SYSTEM_FEEDBACK_WINDOW,
 };
 
 const OVERLAY_PRESENT_EVENT: &str = "overlay://present";
@@ -30,6 +34,37 @@ pub fn reposition_visible_overlays(app: &AppHandle) {
             eprintln!("无法重新定位 {label} 窗口: {error}");
         }
     }
+}
+
+pub fn hide_context_menu(app: &AppHandle) -> Result<(), String> {
+    app.get_webview_window(CONTEXT_MENU_WINDOW)
+        .ok_or_else(|| "找不到右键菜单窗口".to_string())?
+        .hide()
+        .map_err(|error| error.to_string())
+}
+
+pub fn show_context_menu(app: &AppHandle, x: f64, y: f64) -> Result<(), String> {
+    if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
+        return Err("右键菜单坐标无效".to_string());
+    }
+    let main = app
+        .get_webview_window(MAIN_WINDOW)
+        .ok_or_else(|| "找不到桌宠窗口".to_string())?;
+    let menu = app
+        .get_webview_window(CONTEXT_MENU_WINDOW)
+        .ok_or_else(|| "找不到右键菜单窗口".to_string())?;
+    let main_position = main.outer_position().map_err(|error| error.to_string())?;
+    let scale_factor = main.scale_factor().map_err(|error| error.to_string())?;
+    let menu_size = menu.outer_size().map_err(|error| error.to_string())?;
+    let area = current_work_area(&main).map_err(|error| error.to_string())?;
+    let position = context_menu_position(main_position, scale_factor, x, y, menu_size, area);
+
+    menu.set_position(position)
+        .map_err(|error| error.to_string())?;
+    menu.show().map_err(|error| error.to_string())?;
+    menu.set_focus().map_err(|error| error.to_string())?;
+    menu.emit("context-menu://focus", ())
+        .map_err(|error| error.to_string())
 }
 
 pub fn toggle_chat_window(app: &AppHandle) -> Result<(), String> {

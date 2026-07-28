@@ -2,7 +2,6 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     feedback::{self, SystemFeedbackPayload},
-    menu,
     reminder::{self, ReminderActivity, ReminderHistoryState, ReminderPayload},
     windowing,
 };
@@ -119,8 +118,30 @@ pub fn set_info_window_visible(app: AppHandle, visible: bool) -> Result<(), Stri
 
 #[tauri::command]
 pub fn show_main_context_menu(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
-    if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
-        return Err("右键菜单坐标无效".to_string());
-    }
-    menu::show_context_menu(&app, x, y)
+    windowing::show_context_menu(&app, x, y)
+}
+
+#[tauri::command]
+pub fn hide_main_context_menu(app: AppHandle) -> Result<(), String> {
+    windowing::hide_context_menu(&app)
+}
+
+#[tauri::command]
+pub fn show_main_context_status(app: AppHandle) -> Result<(), String> {
+    windowing::show_info_window_now(&app)
+}
+
+#[tauri::command]
+pub fn pause_all_reminders_until_tomorrow(app: AppHandle) -> Result<(), String> {
+    reminder::pause_all_until_tomorrow(&app)
+}
+
+#[tauri::command]
+pub fn show_main_settings_window(app: AppHandle) -> Result<(), String> {
+    windowing::show_settings_window(&app)
+}
+
+#[tauri::command]
+pub fn exit_application(app: AppHandle) {
+    app.exit(0)
 }

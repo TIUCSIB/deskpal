@@ -110,6 +110,28 @@ pub fn info_placement(
     )
 }
 
+pub fn context_menu_position(
+    main_position: PhysicalPosition<i32>,
+    scale_factor: f64,
+    click_x: f64,
+    click_y: f64,
+    menu_size: PhysicalSize<u32>,
+    area: Bounds,
+) -> PhysicalPosition<i32> {
+    let safe_scale = if scale_factor.is_finite() && scale_factor > 0.0 {
+        scale_factor
+    } else {
+        1.0
+    };
+    let x = main_position
+        .x
+        .saturating_add((click_x * safe_scale).round() as i32);
+    let y = main_position
+        .y
+        .saturating_add((click_y * safe_scale).round() as i32);
+    clamp_position(x, y, menu_size, area)
+}
+
 pub fn anchored_resize_position(
     position: PhysicalPosition<i32>,
     old_size: PhysicalSize<u32>,

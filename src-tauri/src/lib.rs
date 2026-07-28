@@ -1,6 +1,5 @@
 mod commands;
 mod feedback;
-mod menu;
 mod reminder;
 mod role_packs;
 mod settings;
@@ -105,13 +104,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_dialog::init())
-        .on_menu_event(|app, event| {
-            if menu::handles_menu_id(event.id().as_ref()) {
-                menu::handle_menu_event(app, event);
-            } else {
-                tray::handle_menu_event(app, event);
-            }
-        })
+        .on_menu_event(|app, event| tray::handle_menu_event(app, event))
         .invoke_handler(tauri::generate_handler![
             system_info::get_system_info,
             window::resize_main_window,
@@ -135,6 +128,11 @@ pub fn run() {
             window::preview_reminder_window,
             window::set_info_window_visible,
             window::show_main_context_menu,
+            window::hide_main_context_menu,
+            window::show_main_context_status,
+            window::pause_all_reminders_until_tomorrow,
+            window::show_main_settings_window,
+            window::exit_application,
             settings_commands::load_app_settings,
             role_pack_commands::list_installed_role_packs,
             role_pack_commands::install_role_pack,
@@ -173,6 +171,7 @@ pub fn run() {
             {
                 for label in [
                     windowing::MAIN_WINDOW,
+                    windowing::CONTEXT_MENU_WINDOW,
                     windowing::CHAT_WINDOW,
                     windowing::INFO_WINDOW,
                     windowing::REMINDER_WINDOW,
@@ -227,6 +226,7 @@ pub fn run() {
                 let app_handle = app.handle().clone();
                 main.on_window_event(move |event| {
                     if matches!(event, WindowEvent::Moved(_)) {
+                        let _ = windowing::hide_context_menu(&app_handle);
                         windowing::reposition_visible_overlays(&app_handle);
                         if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
                             if let Some(window) =
@@ -239,6 +239,7 @@ pub fn run() {
                         }
                     }
                     if matches!(event, WindowEvent::ScaleFactorChanged { .. }) {
+                        let _ = windowing::hide_context_menu(&app_handle);
                         if let Err(error) = windowing::reclamp_main_window_position(&app_handle) {
                             eprintln!("无法在 DPI 变化后重新约束桌宠窗口: {error}");
                         }

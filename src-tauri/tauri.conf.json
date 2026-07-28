@@ -27,6 +27,21 @@
         "visible": true
       },
       {
+        "label": "context-menu",
+        "title": "桌宠菜单",
+        "url": "index.html?window=context-menu",
+        "width": 304,
+        "height": 428,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": true,
+        "visible": false
+      },
+      {
         "label": "chat",
         "title": "桌宠聊天",
         "url": "index.html?window=chat",

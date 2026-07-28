@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "overlay-events",
   "description": "仅允许所有桌宠窗口订阅与接收本地事件。",
-  "windows": ["main", "chat", "info", "reminder", "feedback", "settings"],
+  "windows": ["main", "context-menu", "chat", "info", "reminder", "feedback", "settings"],
   "permissions": [
     "core:event:default"
   ]

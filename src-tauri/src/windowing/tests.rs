@@ -1,6 +1,7 @@
 use super::placement::{
-    anchored_resize_position, bubble_placement, default_main_position, info_placement,
-    reclamped_main_position, resize_plan, restored_main_position, Bounds, OverlaySide,
+    anchored_resize_position, bubble_placement, context_menu_position, default_main_position,
+    info_placement, reclamped_main_position, resize_plan, restored_main_position, Bounds,
+    OverlaySide,
 };
 use super::{clamp_scale, info_window_size, MAX_PET_SCALE, MIN_PET_SCALE};
 use tauri::{PhysicalPosition, PhysicalSize};
@@ -46,6 +47,34 @@ fn info_window_size_normalizes_non_finite_scale() {
 
     assert_eq!(size.width, 240.0);
     assert_eq!(size.height, 166.0);
+}
+
+#[test]
+fn context_menu_uses_click_position_and_clamps_to_work_area() {
+    let position = context_menu_position(
+        PhysicalPosition::new(1600, 700),
+        1.5,
+        180.0,
+        140.0,
+        PhysicalSize::new(304, 428),
+        AREA,
+    );
+
+    assert_eq!(position, PhysicalPosition::new(1616, 612));
+}
+
+#[test]
+fn context_menu_normalizes_invalid_dpi() {
+    let position = context_menu_position(
+        PhysicalPosition::new(100, 100),
+        f64::NAN,
+        24.0,
+        36.0,
+        PhysicalSize::new(304, 428),
+        AREA,
+    );
+
+    assert_eq!(position, PhysicalPosition::new(124, 136));
 }
 
 #[test]

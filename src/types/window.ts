@@ -1,7 +1,7 @@
 import type { PetRoleId } from '@/types/pet'
 import type { PetMood, SystemInfo } from '@/types/system'
 
-export type WindowRole = 'pet' | 'chat' | 'info' | 'settings' | 'reminder' | 'feedback'
+export type WindowRole = 'pet' | 'context-menu' | 'chat' | 'info' | 'settings' | 'reminder' | 'feedback'
 
 export interface PetContext {
   info: SystemInfo | null
@@ -32,6 +32,7 @@ export const WINDOW_EVENTS = {
   settingsUpdated: 'pet://settings-updated',
   setScale: 'pet://set-scale',
   focusChatInput: 'chat://focus-input',
+  focusContextMenu: 'context-menu://focus',
   reminderPayload: 'pet://reminder-payload',
   systemFeedbackPayload: 'pet://system-feedback-payload',
   overlayPresent: 'overlay://present',
