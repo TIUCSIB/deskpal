@@ -12,16 +12,16 @@ const emit = defineEmits<{
   back: []
   pauseAll: []
   pauseOne: [reminderId: string]
+  resumeOne: [reminderId: string]
   openSettings: []
 }>()
 
 const itemRefs = new Map<string, HTMLButtonElement>()
 const activeItemId = ref('pause-all')
 const enabledReminders = computed(() => props.reminders.filter(reminder => reminder.enabled))
-const availableReminders = computed(() => enabledReminders.value.filter(reminder => !reminder.paused_until))
 const itemIds = computed(() => [
   'pause-all',
-  ...availableReminders.value.map(reminder => reminder.id),
+  ...enabledReminders.value.map(reminder => reminder.id),
   'settings',
 ])
 
@@ -106,25 +106,20 @@ nextTick(() => focusItem('pause-all'))
 
     <div class="reminder-picker__list" aria-label="已启用提醒">
       <p v-if="!enabledReminders.length" class="reminder-picker__empty">暂无已启用提醒</p>
-      <template v-for="reminder in enabledReminders" :key="reminder.id">
-        <div v-if="reminder.paused_until" class="reminder-picker__paused">
-          <span class="reminder-picker__message">{{ reminder.message }}</span>
-          <span>已暂停</span>
-        </div>
-        <button
-          v-else
-          :ref="element => setItemRef(reminder.id, element)"
-          class="reminder-picker__reminder"
-          type="button"
-          :tabindex="activeItemId === reminder.id ? 0 : -1"
-          @focus="activeItemId = reminder.id"
-          @keydown="handleKeydown"
-          @click="emit('pauseOne', reminder.id)"
-        >
-          <span class="reminder-picker__message">{{ reminder.message }}</span>
-          <span class="reminder-picker__pause-label">暂停到明天</span>
-        </button>
-      </template>
+      <button
+        v-for="reminder in enabledReminders"
+        :key="reminder.id"
+        :ref="element => setItemRef(reminder.id, element)"
+        class="reminder-picker__reminder"
+        type="button"
+        :tabindex="activeItemId === reminder.id ? 0 : -1"
+        @focus="activeItemId = reminder.id"
+        @keydown="handleKeydown"
+        @click="reminder.paused_until ? emit('resumeOne', reminder.id) : emit('pauseOne', reminder.id)"
+      >
+        <span class="reminder-picker__message">{{ reminder.message }}</span>
+        <span class="reminder-picker__pause-label">{{ reminder.paused_until ? '恢复提醒' : '暂停到明天' }}</span>
+      </button>
     </div>
 
     <div class="reminder-picker__divider" role="separator"></div>
@@ -181,6 +176,7 @@ nextTick(() => focusItem('pause-all'))
 .reminder-picker__action,
 .reminder-picker__reminder {
   width: 100%;
+  min-width: 0;
   min-height: 28px;
   gap: 8px;
   padding: 5px 8px;
@@ -208,27 +204,19 @@ nextTick(() => focusItem('pause-all'))
 
 .reminder-picker__list {
   display: grid;
+  min-width: 0;
   max-height: 108px;
   gap: 1px;
   overflow-y: auto;
 }
 
-.reminder-picker__reminder,
-.reminder-picker__paused {
+.reminder-picker__reminder {
   justify-content: space-between;
-  gap: 8px;
-}
-
-.reminder-picker__paused {
-  display: flex;
-  min-height: 28px;
-  padding: 5px 8px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 16px;
+  overflow: hidden;
 }
 
 .reminder-picker__message {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -236,9 +224,11 @@ nextTick(() => focusItem('pause-all'))
 }
 
 .reminder-picker__pause-label {
-  flex: none;
+  flex: 0 0 auto;
+  margin-left: auto;
   color: var(--muted-foreground);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .reminder-picker__empty {

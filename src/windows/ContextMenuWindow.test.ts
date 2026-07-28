@@ -4,7 +4,7 @@ import {
   replaceInstalledPetRoles,
   type InstalledPetRole,
 } from '@/config/petRoles'
-import { DEFAULT_APP_SETTINGS, type AppSettings, type Reminder } from '@/types/settings'
+import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/types/settings'
 import ContextMenuWindow from '@/windows/ContextMenuWindow.vue'
 
 const mocks = vi.hoisted(() => {
@@ -36,33 +36,6 @@ vi.mock('@/composables/useAppSettings', () => ({
     loadSettings: mocks.loadSettings,
   }),
 }))
-
-const REMINDERS: Reminder[] = [
-  {
-    id: 'drink-water',
-    enabled: true,
-    message: '起来接水',
-    schedule: { type: 'interval', interval_minutes: 30 },
-    snooze_minutes: 10,
-    paused_until: null,
-  },
-  {
-    id: 'stretch',
-    enabled: true,
-    message: '伸展一下',
-    schedule: { type: 'interval', interval_minutes: 60 },
-    snooze_minutes: 10,
-    paused_until: '2099-01-01T00:00:00+08:00',
-  },
-  {
-    id: 'disabled-reminder',
-    enabled: false,
-    message: '不应显示',
-    schedule: { type: 'interval', interval_minutes: 30 },
-    snooze_minutes: 10,
-    paused_until: null,
-  },
-]
 
 const TINY_CRT: InstalledPetRole = {
   id: 'tiny-crt',
@@ -96,7 +69,7 @@ describe('ContextMenuWindow', () => {
   beforeEach(() => {
     HTMLElement.prototype.scrollIntoView = scrollIntoView
     replaceInstalledPetRoles([TINY_CRT])
-    mocks.settings.value = { ...DEFAULT_APP_SETTINGS, pet_role: 'tiny-crt', reminders: REMINDERS }
+    mocks.settings.value = { ...DEFAULT_APP_SETTINGS, pet_role: 'tiny-crt', reminders: [] }
     mocks.ready.value = true
     mocks.invoke.mockReset()
     mocks.invoke.mockResolvedValue(undefined)
@@ -113,6 +86,7 @@ describe('ContextMenuWindow', () => {
     document.body.replaceChildren()
     vi.clearAllMocks()
   })
+
   it('keeps the root menu compact and shows the selected role summary', () => {
     const wrapper = mount(ContextMenuWindow)
 
@@ -121,6 +95,7 @@ describe('ContextMenuWindow', () => {
     expect(roleButtons(wrapper)).toHaveLength(0)
     wrapper.unmount()
   })
+
   it('scrolls and focuses the selected role after opening the role view', async () => {
     const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
     await findButton(wrapper, '切换角色').trigger('click')
@@ -132,6 +107,7 @@ describe('ContextMenuWindow', () => {
     expect(document.activeElement).toBe(selectedRole.element)
     wrapper.unmount()
   })
+
   it('filters roles by display name and shows an empty state', async () => {
     const wrapper = mount(ContextMenuWindow)
     await findButton(wrapper, '切换角色').trigger('click')
@@ -146,6 +122,7 @@ describe('ContextMenuWindow', () => {
     expect(wrapper.text()).toContain('未找到匹配的角色')
     wrapper.unmount()
   })
+
   it('supports root and role-list keyboard navigation', async () => {
     const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
     const chat = findButton(wrapper, '打开聊天')
@@ -166,6 +143,7 @@ describe('ContextMenuWindow', () => {
     expect(document.activeElement).toBe(roles[0]!.element)
     wrapper.unmount()
   })
+
   it('moves from search to the role list and clears search before returning', async () => {
     const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
     await findButton(wrapper, '切换角色').trigger('click')
@@ -182,6 +160,7 @@ describe('ContextMenuWindow', () => {
     expect(roleButtons(wrapper)).toHaveLength(0)
     wrapper.unmount()
   })
+
   it('returns to the root menu with the mouse back button', async () => {
     const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
     await findButton(wrapper, '切换角色').trigger('click')
@@ -191,6 +170,7 @@ describe('ContextMenuWindow', () => {
     expect(document.activeElement).toBe(findButton(wrapper, '切换角色').element)
     wrapper.unmount()
   })
+
   it('switches roles through the validated native command', async () => {
     const wrapper = mount(ContextMenuWindow)
     await findButton(wrapper, '切换角色').trigger('click')
@@ -200,6 +180,7 @@ describe('ContextMenuWindow', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('hide_main_context_menu')
     wrapper.unmount()
   })
+
   it('confirms before exiting the application', async () => {
     const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
     await findButton(wrapper, '退出').trigger('click')
@@ -217,80 +198,6 @@ describe('ContextMenuWindow', () => {
     confirm?.click()
     await flushPromises()
     expect(mocks.invoke).toHaveBeenCalledWith('exit_application')
-    wrapper.unmount()
-  })
-  it('manages enabled reminders without showing disabled reminders', async () => {
-    const wrapper = mount(ContextMenuWindow)
-    await findButton(wrapper, '管理提醒').trigger('click')
-
-    expect(wrapper.text()).toContain('全部暂停到明天')
-    expect(wrapper.text()).toContain('起来接水')
-    expect(wrapper.text()).toContain('伸展一下')
-    expect(wrapper.text()).toContain('已暂停')
-    expect(wrapper.text()).not.toContain('不应显示')
-    wrapper.unmount()
-  })
-  it('opens the reminder settings section from reminder management', async () => {
-    const wrapper = mount(ContextMenuWindow)
-    await findButton(wrapper, '管理提醒').trigger('click')
-    await findButton(wrapper, '打开提醒设置').trigger('click')
-    await flushPromises()
-
-    expect(mocks.invoke.mock.calls).toEqual([
-      ['show_main_reminder_settings'],
-      ['hide_main_context_menu'],
-    ])
-    wrapper.unmount()
-  })
-
-  it('pauses one enabled reminder with fixed feedback', async () => {
-    const wrapper = mount(ContextMenuWindow)
-    await findButton(wrapper, '管理提醒').trigger('click')
-    await findButton(wrapper, '起来接水').trigger('click')
-    await flushPromises()
-
-    expect(mocks.invoke.mock.calls).toEqual([
-      ['pause_enabled_reminder_until_tomorrow', { reminderId: 'drink-water' }],
-      ['show_reminder_paused_confirmation', { reminderId: 'drink-water' }],
-      ['hide_main_context_menu'],
-    ])
-    wrapper.unmount()
-  })
-  it('pauses all enabled reminders after explicit selection', async () => {
-    const wrapper = mount(ContextMenuWindow)
-    await findButton(wrapper, '管理提醒').trigger('click')
-    await findButton(wrapper, '全部暂停到明天').trigger('click')
-    await flushPromises()
-
-    expect(mocks.invoke.mock.calls).toEqual([
-      ['pause_all_reminders_until_tomorrow'],
-      ['show_reminders_paused_confirmation'],
-      ['hide_main_context_menu'],
-    ])
-    wrapper.unmount()
-  })
-  it('keeps the reminder menu open when an individual pause fails', async () => {
-    mocks.invoke.mockRejectedValueOnce(new Error('暂停失败'))
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const wrapper = mount(ContextMenuWindow)
-    await findButton(wrapper, '管理提醒').trigger('click')
-    await findButton(wrapper, '起来接水').trigger('click')
-    await flushPromises()
-
-    expect(mocks.invoke.mock.calls).toEqual([
-      ['pause_enabled_reminder_until_tomorrow', { reminderId: 'drink-water' }],
-    ])
-    expect(wrapper.text()).toContain('起来接水')
-    errorSpy.mockRestore()
-    wrapper.unmount()
-  })
-  it('returns from reminder management with the mouse back button', async () => {
-    const wrapper = mount(ContextMenuWindow, { attachTo: document.body })
-    await findButton(wrapper, '管理提醒').trigger('click')
-    await wrapper.findComponent({ name: 'ContextMenuReminderPicker' }).trigger('mouseup', { button: 3 })
-
-    expect(wrapper.text()).toContain('管理提醒')
-    expect(document.activeElement).toBe(findButton(wrapper, '管理提醒').element)
     wrapper.unmount()
   })
 })

@@ -45,7 +45,6 @@ const contentStyle = computed(() => ({
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   background: transparent;
 }
 
@@ -56,7 +55,6 @@ const contentStyle = computed(() => ({
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 .info-window__panel {

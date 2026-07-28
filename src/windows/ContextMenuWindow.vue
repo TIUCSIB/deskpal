@@ -77,7 +77,14 @@ async function pauseReminder(reminderId: string) {
   } catch (error) {
     console.error('显示提醒暂停提示失败:', error)
   }
-  await hideMenu()
+}
+
+async function resumeReminder(reminderId: string) {
+  try {
+    await invoke('resume_reminder', { id: reminderId })
+  } catch (error) {
+    console.error('恢复提醒失败:', error)
+  }
 }
 
 async function selectRole(role: PetRoleId) {
@@ -220,6 +227,7 @@ onMounted(() => {
         @back="showMenu('reminders')"
         @pause-all="pauseReminders"
         @pause-one="pauseReminder"
+        @resume-one="resumeReminder"
         @open-settings="runAction('show_main_reminder_settings')"
       />
       <ContextMenuRolePicker v-else :selected-role="selectedRole" @back="showMenu" @select="selectRole" />
