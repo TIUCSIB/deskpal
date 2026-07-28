@@ -65,34 +65,44 @@ describe('ContextMenuWindow', () => {
     vi.clearAllMocks()
   })
 
-  it('renders installed roles and marks the current selection', async () => {
+  it('keeps the root menu compact and shows the selected role summary', () => {
     const wrapper = mount(ContextMenuWindow)
-    await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('Tiny CRT')
-    })
 
-    expect(wrapper.get('[aria-pressed="true"]').text()).toContain('Tiny CRT')
+    expect(wrapper.text()).toContain('切换角色')
+    expect(wrapper.text()).toContain('Tiny CRT')
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
+    wrapper.unmount()
+  })
+
+  it('shows installed roles only after opening the role view', async () => {
+    const wrapper = mount(ContextMenuWindow)
+    await wrapper.get('[aria-haspopup="true"]').trigger('click')
+
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(4)
+    expect(wrapper.get('[aria-checked="true"]').text()).toContain('Tiny CRT')
     expect(wrapper.find('[aria-label="当前角色"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
   it('switches roles through the validated native command', async () => {
     const wrapper = mount(ContextMenuWindow)
-    await vi.waitFor(() => {
-      expect(wrapper.findAll('.context-menu__role')).toHaveLength(4)
-    })
-
-    await wrapper.get('[aria-pressed="false"]').trigger('click')
+    await wrapper.get('[aria-haspopup="true"]').trigger('click')
+    await wrapper.get('[aria-checked="false"]').trigger('click')
 
     expect(mocks.invoke).toHaveBeenCalledWith('set_pet_role', { role: 'guga' })
     expect(mocks.invoke).toHaveBeenCalledWith('hide_main_context_menu')
     wrapper.unmount()
   })
 
-  it('closes when Escape is pressed', async () => {
+  it('returns to the root menu before closing on Escape', async () => {
     const wrapper = mount(ContextMenuWindow)
+    await wrapper.get('[aria-haspopup="true"]').trigger('click')
     await wrapper.trigger('keydown', { key: 'Escape' })
 
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
+    expect(mocks.invoke).not.toHaveBeenCalledWith('hide_main_context_menu')
+
+    await wrapper.trigger('keydown', { key: 'Escape' })
     expect(mocks.invoke).toHaveBeenCalledWith('hide_main_context_menu')
     wrapper.unmount()
   })
