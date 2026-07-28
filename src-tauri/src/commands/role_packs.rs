@@ -32,7 +32,7 @@ pub async fn install_role_pack(
         .dialog()
         .file()
         .set_parent(&window)
-        .add_filter("DeskPal 角色资源包", &["deskpal-role.zip"])
+        .add_filter("DeskPal 角色资源包", &["zip"])
         .blocking_pick_file();
     let path = match selected {
         Some(FilePath::Path(path)) => path,

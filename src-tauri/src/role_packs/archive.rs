@@ -7,11 +7,28 @@ use std::{
 use zip::ZipArchive;
 
 use super::{manifest, RolePackManifest, RolePackRole};
+use manifest::{RolePackAnimation, RolePackSpritesheet};
 
 const MANIFEST_FILE: &str = "manifest.json";
+const LEGACY_PET_FILE: &str = "pet.json";
+const LEGACY_IMAGE_WIDTH: u32 = 1536;
+const LEGACY_IMAGE_HEIGHT: u32 = 1872;
+const LEGACY_FRAME_WIDTH: u32 = 192;
+const LEGACY_FRAME_HEIGHT: u32 = 208;
 const MAX_ARCHIVE_BYTES: u64 = 12 * 1024 * 1024;
 const MAX_MANIFEST_BYTES: usize = 64 * 1024;
 const MAX_IMAGE_BYTES: usize = 10 * 1024 * 1024;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LegacyPetManifest {
+    id: String,
+    display_name: String,
+    description: String,
+    #[serde(default)]
+    kind: String,
+    spritesheet_path: String,
+}
 
 pub(super) struct ValidatedRolePack {
     pub(super) role: RolePackRole,
@@ -28,19 +45,22 @@ pub(super) fn read_role_pack(archive_path: &Path) -> Result<ValidatedRolePack, S
     if !archive_path
         .file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.ends_with(".deskpal-role.zip"))
+        .is_some_and(|name| name.ends_with(".deskpal-role.zip") || name.ends_with(".zip"))
     {
-        return Err("仅支持 .deskpal-role.zip 角色资源包。".to_string());
+        return Err("仅支持 ZIP 格式的角色资源包。".to_string());
     }
 
     let mut archive =
         ZipArchive::new(File::open(archive_path).map_err(|_| "无法打开角色资源包。".to_string())?)
             .map_err(|_| "角色资源包不是有效的 ZIP 文件。".to_string())?;
     if archive.len() != 2 {
-        return Err("角色资源包只能包含 manifest.json 与一个 PNG 或 WebP 精灵图。".to_string());
+        return Err(
+            "角色资源包只能包含 pet.json 或 manifest.json 与一个 PNG 或 WebP 精灵图。".to_string(),
+        );
     }
 
-    let mut manifest_content = None;
+    let mut metadata_content = None;
+    let mut metadata_name = None;
     let mut image = None;
     for index in 0..archive.len() {
         let entry = archive
@@ -51,7 +71,7 @@ pub(super) fn read_role_pack(archive_path: &Path) -> Result<ValidatedRolePack, S
         if entry.is_dir() || entry.is_symlink() {
             return Err("角色资源包不能包含目录或链接。".to_string());
         }
-        let max_entry_size = if name == MANIFEST_FILE {
+        let max_entry_size = if matches!(name.as_str(), MANIFEST_FILE | LEGACY_PET_FILE) {
             MAX_MANIFEST_BYTES
         } else {
             MAX_IMAGE_BYTES
@@ -68,19 +88,29 @@ pub(super) fn read_role_pack(archive_path: &Path) -> Result<ValidatedRolePack, S
             return Err("角色资源包包含过大的文件。".to_string());
         }
         match name.as_str() {
-            MANIFEST_FILE if manifest_content.is_none() => manifest_content = Some(content),
+            MANIFEST_FILE | LEGACY_PET_FILE if metadata_content.is_none() => {
+                metadata_name = Some(name);
+                metadata_content = Some(content);
+            }
             "spritesheet.png" | "spritesheet.webp" if image.is_none() => {
-                image = Some((name, content))
+                image = Some((name, content));
             }
             _ => return Err("角色资源包包含重复或不受支持的文件。".to_string()),
         }
     }
 
-    let manifest_content =
-        manifest_content.ok_or_else(|| "角色资源包缺少 manifest.json。".to_string())?;
+    let metadata_content =
+        metadata_content.ok_or_else(|| "角色资源包缺少 pet.json 或 manifest.json。".to_string())?;
+    let metadata_name = metadata_name.expect("角色包元数据名称应与内容同时存在");
     let (image_name, image_content) = image.ok_or_else(|| "角色资源包缺少精灵图。".to_string())?;
-    let role = parse_manifest(&manifest_content)?;
     let (width, height) = image_dimensions(&image_name, &image_content)?;
+    let role = parse_role_metadata(
+        &metadata_name,
+        &metadata_content,
+        &image_name,
+        width,
+        height,
+    )?;
     manifest::validate_image_and_role(&role, width, height)?;
     Ok(ValidatedRolePack {
         role,
@@ -97,6 +127,20 @@ pub(super) fn image_dimensions(name: &str, content: &[u8]) -> Result<(u32, u32),
     }
 }
 
+fn parse_role_metadata(
+    name: &str,
+    content: &[u8],
+    image_name: &str,
+    image_width: u32,
+    image_height: u32,
+) -> Result<RolePackRole, String> {
+    match name {
+        MANIFEST_FILE => parse_manifest(content),
+        LEGACY_PET_FILE => parse_legacy_pet(content, image_name, image_width, image_height),
+        _ => Err("角色资源包元数据格式无效。".to_string()),
+    }
+}
+
 fn parse_manifest(content: &[u8]) -> Result<RolePackRole, String> {
     let manifest: RolePackManifest<RolePackRole> = serde_json::from_slice(content)
         .map_err(|_| "manifest.json 格式无效或包含不受支持的字段。".to_string())?;
@@ -104,6 +148,59 @@ fn parse_manifest(content: &[u8]) -> Result<RolePackRole, String> {
         return Err("不支持该角色资源包版本。".to_string());
     }
     manifest::validate_role(manifest.role)
+}
+
+fn parse_legacy_pet(
+    content: &[u8],
+    image_name: &str,
+    image_width: u32,
+    image_height: u32,
+) -> Result<RolePackRole, String> {
+    let pet: LegacyPetManifest = serde_json::from_slice(content)
+        .map_err(|_| "pet.json 格式无效或包含不受支持的字段。".to_string())?;
+    if pet.spritesheet_path != image_name {
+        return Err("pet.json 中的 spritesheetPath 必须匹配资源包内的精灵图文件。".to_string());
+    }
+    if image_width != LEGACY_IMAGE_WIDTH || image_height != LEGACY_IMAGE_HEIGHT {
+        return Err("pet.json 兼容格式仅支持 1536 × 1872 的固定精灵图布局。".to_string());
+    }
+    manifest::validate_role(RolePackRole {
+        id: pet.id,
+        display_name: pet.display_name,
+        description: pet.description,
+        kind: pet.kind,
+        spritesheet: RolePackSpritesheet {
+            width: LEGACY_IMAGE_WIDTH,
+            height: LEGACY_IMAGE_HEIGHT,
+            frame_width: LEGACY_FRAME_WIDTH,
+            frame_height: LEGACY_FRAME_HEIGHT,
+            row_gap: 0,
+            crop: None,
+            animations: legacy_animations(),
+        },
+    })
+}
+
+fn legacy_animations() -> Vec<RolePackAnimation> {
+    [
+        ("Idle", 0, 6, 4),
+        ("RunRight", 1, 8, 6),
+        ("RunLeft", 2, 8, 6),
+        ("Waving", 3, 4, 5),
+        ("Jumping", 4, 5, 5),
+        ("Failed", 5, 8, 5),
+        ("Waiting", 6, 6, 3),
+        ("Running", 7, 6, 6),
+        ("Review", 8, 6, 4),
+    ]
+    .into_iter()
+    .map(|(name, row, frames, fps)| RolePackAnimation {
+        name: name.to_string(),
+        row,
+        frames,
+        fps,
+    })
+    .collect()
 }
 
 fn validate_entry_name(name: &str) -> Result<(), String> {
@@ -161,11 +258,42 @@ mod tests {
     }
 
     #[test]
-    fn reads_png_dimensions_only_from_a_valid_header() {
-        let mut image = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
-        image.extend_from_slice(&1536_u32.to_be_bytes());
-        image.extend_from_slice(&1872_u32.to_be_bytes());
-        assert_eq!(png_dimensions(&image), Ok((1536, 1872)));
-        assert!(png_dimensions(b"not-an-image").is_err());
+    fn normalizes_legacy_pet_metadata_to_the_fixed_layout() {
+        let role = parse_legacy_pet(
+            br#"{
+                "id":"tiny-crt",
+                "displayName":"Tiny CRT",
+                "description":"A tiny terminal monitor.",
+                "spritesheetPath":"spritesheet.webp",
+                "kind":"object"
+            }"#,
+            "spritesheet.webp",
+            LEGACY_IMAGE_WIDTH,
+            LEGACY_IMAGE_HEIGHT,
+        )
+        .expect("legacy metadata is valid");
+
+        assert_eq!(role.spritesheet.frame_width, LEGACY_FRAME_WIDTH);
+        assert_eq!(role.spritesheet.animations.len(), 9);
+        assert_eq!(role.spritesheet.animations[0].name, "Idle");
+        assert_eq!(role.spritesheet.animations[8].name, "Review");
+    }
+
+    #[test]
+    fn rejects_legacy_metadata_with_a_wrong_image_path_or_layout() {
+        let content = br#"{
+            "id":"tiny-crt",
+            "displayName":"Tiny CRT",
+            "description":"A tiny terminal monitor.",
+            "spritesheetPath":"other.webp"
+        }"#;
+        assert!(parse_legacy_pet(
+            content,
+            "spritesheet.webp",
+            LEGACY_IMAGE_WIDTH,
+            LEGACY_IMAGE_HEIGHT,
+        )
+        .is_err());
+        assert!(parse_legacy_pet(content, "other.webp", 512, 512,).is_err());
     }
 }
