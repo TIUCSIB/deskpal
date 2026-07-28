@@ -169,9 +169,11 @@ watch(
 )
 
 async function handlePetActivate(event: MouseEvent) {
-  if (!shouldActivate(event) || !tryTriggerClickFeedback()) return
-  triggerClickFeedback()
-  recordInteraction('click', getPetInteractionReply(settings.value.pet_role, 'click'))
+  if (!shouldActivate(event)) return
+  if (tryTriggerClickFeedback()) {
+    triggerClickFeedback()
+    recordInteraction('click', getPetInteractionReply(settings.value.pet_role, 'click'))
+  }
   try {
     await invoke('show_chat_window')
   } catch (error) {

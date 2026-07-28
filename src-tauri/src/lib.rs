@@ -67,13 +67,28 @@ pub fn run() {
     tauri::Builder::default()
         .register_uri_scheme_protocol("role-pack", |context, request| {
             let role_id = request.uri().path().trim_start_matches('/');
+            let origin = request
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok());
+            let allowed_origin = match origin {
+                Some("http://tauri.localhost") => Some("http://tauri.localhost"),
+                Some("http://localhost:1420") => Some("http://localhost:1420"),
+                _ => None,
+            };
             let response = role_packs::resource_response(context.app_handle(), role_id);
             match response {
-                Ok((content, content_type)) => tauri::http::Response::builder()
-                    .header("content-type", content_type)
-                    .header("cache-control", "no-store")
-                    .body(content)
-                    .expect("角色资源响应构建失败"),
+                Ok((content, content_type)) => {
+                    let mut builder = tauri::http::Response::builder()
+                        .header("content-type", content_type)
+                        .header("cache-control", "no-store");
+                    if let Some(origin) = allowed_origin {
+                        builder = builder
+                            .header("access-control-allow-origin", origin)
+                            .header("vary", "origin");
+                    }
+                    builder.body(content).expect("角色资源响应构建失败")
+                }
                 Err(_) => tauri::http::Response::builder()
                     .status(tauri::http::StatusCode::NOT_FOUND)
                     .body(Vec::new())

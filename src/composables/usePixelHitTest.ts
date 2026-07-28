@@ -17,6 +17,7 @@ export function usePixelHitTest(
 ) {
   const image = new Image()
   const isReady = ref(false)
+  const pixelReadFailed = ref(false)
   const canvas = document.createElement('canvas')
   canvas.width = 1
   canvas.height = 1
@@ -24,8 +25,10 @@ export function usePixelHitTest(
 
   function loadImage(url: string) {
     isReady.value = false
+    pixelReadFailed.value = false
     image.onload = () => { isReady.value = true }
     image.onerror = () => { isReady.value = false }
+    image.crossOrigin = 'anonymous'
     image.src = url
     if (image.complete && image.naturalWidth > 0) isReady.value = true
   }
@@ -40,7 +43,7 @@ export function usePixelHitTest(
    * @returns true = 非透明（应响应），false = 透明（应忽略）
    */
   function hitTest(divX: number, divY: number): boolean {
-    if (!isReady.value) return true
+    if (!isReady.value || pixelReadFailed.value) return true
 
     const bgSize = backgroundSize.value.split(' ').map(parseFloat)
     const bgPos = backgroundPosition.value.split(' ').map(parseFloat)
@@ -53,10 +56,16 @@ export function usePixelHitTest(
       return false
     }
 
-    ctx.clearRect(0, 0, 1, 1)
-    ctx.drawImage(image, srcX, srcY, 1, 1, 0, 0, 1, 1)
-    const alpha = ctx.getImageData(0, 0, 1, 1).data[3]
-    return alpha > 0
+    try {
+      ctx.clearRect(0, 0, 1, 1)
+      ctx.drawImage(image, srcX, srcY, 1, 1, 0, 0, 1, 1)
+      const alpha = ctx.getImageData(0, 0, 1, 1).data[3]
+      return alpha > 0
+    } catch (error) {
+      pixelReadFailed.value = true
+      console.warn('宠物精灵图无法进行像素命中检测，已启用容器交互。', error)
+      return true
+    }
   }
 
   return { hitTest }
