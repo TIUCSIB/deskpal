@@ -38,6 +38,7 @@ const emit = defineEmits<{
   'update:draft-snooze-minutes': [number]
   'update:enabled': [id: string, enabled: boolean]
   preview: [id: string]
+  resume: [id: string]
   requestDelete: [Reminder]
   cancelDelete: []
   confirmDelete: []
@@ -83,7 +84,7 @@ function confirmDelete() {
       @cancel="emit('cancel')"
     />
 
-    <div v-if="props.reminders.length" class="grid gap-2"><ReminderListItem v-for="reminder in props.reminders" :key="reminder.id" :reminder="reminder" :schedule-text="props.formatSchedule(reminder.schedule)" :pause-text="props.formatPause(reminder)" @update:enabled="emit('update:enabled', reminder.id, $event)" @edit="emit('edit', reminder)" @preview="emit('preview', reminder.id)" @delete="emit('requestDelete', reminder)" /></div>
+    <div v-if="props.reminders.length" class="grid gap-2"><ReminderListItem v-for="reminder in props.reminders" :key="reminder.id" :reminder="reminder" :schedule-text="props.formatSchedule(reminder.schedule)" :pause-text="props.formatPause(reminder)" @update:enabled="emit('update:enabled', reminder.id, $event)" @edit="emit('edit', reminder)" @preview="emit('preview', reminder.id)" @resume="emit('resume', reminder.id)" @delete="emit('requestDelete', reminder)" /></div>
     <div v-else class="rounded-xl border border-dashed border-border px-3 py-5 text-center text-sm text-muted-foreground">暂无提醒，添加一条开始使用。</div>
   </SettingsSection>
 

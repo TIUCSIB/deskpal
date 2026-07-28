@@ -50,6 +50,21 @@ describe('ReminderSettingsSection', () => {
     expect(wrapper.emitted('requestDelete')).toEqual([[reminder]])
   })
 
+  it('shows a resume button for paused reminders and emits resume', async () => {
+    const pausedReminder = { ...reminder, paused_until: '2099-01-01T00:00:00+08:00' }
+    const wrapper = mountSection({
+      reminders: [pausedReminder],
+      formatPause: () => '已暂停至 1月1日 00:00',
+    })
+    const resumeButton = wrapper.findAll('button').find((button) => button.text() === '恢复提醒')
+
+    expect(wrapper.text()).toContain('已暂停至 1月1日 00:00')
+    expect(resumeButton).toBeTruthy()
+
+    await resumeButton!.trigger('click')
+    expect(wrapper.emitted('resume')).toEqual([['water-1']])
+  })
+
   it('prevents another create action while an editor is open', () => {
     const wrapper = mountSection({
       draft: {

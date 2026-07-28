@@ -226,6 +226,37 @@ fn pausing_one_reminder_rejects_invalid_or_unavailable_targets() {
 }
 
 #[test]
+fn resuming_a_paused_reminder_clears_only_its_pause_state() {
+    let state = test_state("resume-reminder");
+    let first = state
+        .create_reminder(interval_input("喝水", 30))
+        .expect("create first reminder")
+        .reminders
+        .into_iter()
+        .next()
+        .expect("first reminder");
+    let second = state
+        .create_reminder(interval_input("休息", 45))
+        .expect("create second reminder")
+        .reminders
+        .into_iter()
+        .last()
+        .expect("second reminder");
+    state
+        .pause_enabled_reminder_until(first.id.clone(), "2030-01-01T00:00:00+00:00".to_string())
+        .expect("pause first reminder");
+
+    let updated = state
+        .set_reminder_pause(first.id.clone(), None)
+        .expect("resume first reminder");
+
+    assert_eq!(updated.reminders[0].id, first.id);
+    assert_eq!(updated.reminders[0].paused_until, None);
+    assert_eq!(updated.reminders[1], second);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
 fn creating_duplicate_reminders_assigns_unique_ids() {
     let state = test_state("reminder-ids");
     state

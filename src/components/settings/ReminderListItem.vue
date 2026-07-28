@@ -14,6 +14,7 @@ const emit = defineEmits<{
   'update:enabled': [boolean]
   edit: []
   preview: []
+  resume: []
   delete: []
 }>()
 </script>
@@ -38,6 +39,7 @@ const emit = defineEmits<{
     <div class="flex flex-wrap gap-2">
       <Button variant="outline" size="sm" class="rounded-lg" @click="emit('edit')">编辑</Button>
       <Button variant="outline" size="sm" class="rounded-lg" @click="emit('preview')">测试</Button>
+      <Button v-if="props.reminder.paused_until" variant="outline" size="sm" class="rounded-lg" @click="emit('resume')">恢复提醒</Button>
       <Button variant="ghost" size="sm" class="rounded-lg text-destructive hover:text-destructive" @click="emit('delete')">
         删除
       </Button>

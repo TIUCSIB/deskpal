@@ -130,9 +130,15 @@ export function useReminderSettings(
     setFeedback(value.enabled ? '免打扰时段已保存' : '免打扰已关闭')
   }
 
+
   async function setReminderEnabled(id: string, enabled: boolean) {
     await invokeSetting('set_reminder_enabled', { id, enabled })
     setFeedback(enabled ? '提醒已开启' : '提醒已关闭')
+  }
+
+  async function resumeReminder(id: string) {
+    await invokeSetting('resume_reminder', { id })
+    setFeedback('提醒已恢复')
   }
 
   async function previewReminder(id: string) {
@@ -175,6 +181,6 @@ export function useReminderSettings(
   return {
     intervalOptions: INTERVAL_OPTIONS, snoozeOptions: SNOOZE_OPTIONS, presets: REMINDER_PRESETS, draft, deleteTarget, quietHoursDraft, isEditing,
     syncQuietHoursDraft, openCreateEditor, openEditEditor, cancelEditor, updateDraft, toggleWeekday, saveReminder, createPreset, saveQuietHours,
-    setReminderEnabled, previewReminder, requestDelete, cancelDelete, confirmDelete, formatSchedule, formatPause,
+    setReminderEnabled, resumeReminder, previewReminder, requestDelete, cancelDelete, confirmDelete, formatSchedule, formatPause,
   }
 }

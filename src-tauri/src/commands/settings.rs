@@ -212,6 +212,15 @@ pub fn set_reminder_enabled(
 }
 
 #[tauri::command]
+pub fn resume_reminder(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    id: String,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_pause(id, None)?)
+}
+
+#[tauri::command]
 pub fn reset_main_window_position(
     app: AppHandle,
     settings: State<'_, SettingsState>,

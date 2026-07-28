@@ -160,6 +160,7 @@ pub fn run() {
             settings_commands::update_reminder,
             settings_commands::delete_reminder,
             settings_commands::set_reminder_enabled,
+            settings_commands::resume_reminder,
             settings_commands::reset_main_window_position,
             settings_commands::reset_settings_window_bounds,
             settings_commands::reset_all_settings,

@@ -17,7 +17,7 @@ const { activity, clearActivity, loadActivity } = useReminderActivity()
 const {
   intervalOptions, snoozeOptions, presets, draft, deleteTarget, quietHoursDraft,
   openCreateEditor, openEditEditor, cancelEditor, updateDraft, toggleWeekday, saveReminder,
-  createPreset, saveQuietHours, setReminderEnabled, previewReminder, requestDelete,
+  createPreset, saveQuietHours, setReminderEnabled, resumeReminder, previewReminder, requestDelete,
   cancelDelete, confirmDelete, formatSchedule, formatPause,
 } = props.reminderSettings
 </script>
@@ -48,6 +48,7 @@ const {
         @update:draft-snooze-minutes="updateDraft('snoozeMinutes', $event)"
         @update:enabled="setReminderEnabled"
         @preview="previewReminder"
+        @resume="resumeReminder"
         @request-delete="requestDelete"
         @cancel-delete="cancelDelete"
         @confirm-delete="confirmDelete"

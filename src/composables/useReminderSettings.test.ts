@@ -83,6 +83,15 @@ describe('useReminderSettings', () => {
     expect(setFeedback).toHaveBeenCalledWith('免打扰时段已保存')
   })
 
+  it('resumes a paused reminder through the settings command', async () => {
+    const { state, invokeSetting, setFeedback } = createHarness()
+
+    await state.resumeReminder('water-1')
+
+    expect(invokeSetting).toHaveBeenCalledWith('resume_reminder', { id: 'water-1' })
+    expect(setFeedback).toHaveBeenCalledWith('提醒已恢复')
+  })
+
   it('keeps the selected reminder until deletion completes', async () => {
     const { state, invokeSetting, setFeedback } = createHarness()
     const reminder = {
