@@ -234,10 +234,11 @@ fn webp_dimensions(content: &[u8]) -> Result<(u32, u32), String> {
             1 + u32::from_le_bytes([content[27], content[28], content[29], 0]),
         )),
         b"VP8L" if content.len() >= 25 && content[20] == 0x2f => {
-            let width = 1 + u32::from(content[21] | ((content[22] & 0x3f) << 8));
-            let height = 1 + u32::from(
-                (content[22] >> 6) | (content[23] << 2) | ((content[24] & 0x0f) << 10),
-            );
+            let width = 1 + u32::from(content[21]) + (u32::from(content[22] & 0x3f) << 8);
+            let height = 1
+                + u32::from(content[22] >> 6)
+                + (u32::from(content[23]) << 2)
+                + (u32::from(content[24] & 0x0f) << 10);
             Ok((width, height))
         }
         b"VP8 " if content.len() >= 30 && content[23..26] == [0x9d, 0x01, 0x2a] => Ok((
