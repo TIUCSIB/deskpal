@@ -31,10 +31,13 @@ pub async fn install_role_pack(
     let selected = app
         .dialog()
         .file()
+        .set_parent(&window)
         .add_filter("DeskPal 角色资源包", &["deskpal-role.zip"])
         .blocking_pick_file();
-    let Some(FilePath::Path(path)) = selected else {
-        return Ok(None);
+    let path = match selected {
+        Some(FilePath::Path(path)) => path,
+        Some(FilePath::Url(_)) => return Err("仅支持本机文件路径。".to_string()),
+        None => return Ok(None),
     };
     let app_handle = app.clone();
     let installed =

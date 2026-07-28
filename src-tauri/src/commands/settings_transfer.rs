@@ -36,6 +36,7 @@ pub async fn export_portable_settings(
     let selected = app
         .dialog()
         .file()
+        .set_parent(&window)
         .set_file_name("deskpal-settings.deskpal-settings.json")
         .add_filter("DeskPal 设置", &["deskpal-settings.json"])
         .blocking_save_file();
@@ -63,6 +64,7 @@ pub async fn import_portable_settings(
     let selected = app
         .dialog()
         .file()
+        .set_parent(&window)
         .add_filter("DeskPal 设置", &["deskpal-settings.json"])
         .blocking_pick_file();
     let Some(path) = selected else {
