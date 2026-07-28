@@ -137,6 +137,11 @@ pub fn pause_all_reminders_until_tomorrow(app: AppHandle) -> Result<(), String> 
 }
 
 #[tauri::command]
+pub fn show_reminders_paused_confirmation(app: AppHandle) -> Result<(), String> {
+    feedback::show(&app, feedback::reminders_paused_confirmation())
+}
+
+#[tauri::command]
 pub fn show_main_settings_window(app: AppHandle) -> Result<(), String> {
     windowing::show_settings_window(&app)
 }

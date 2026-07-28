@@ -131,6 +131,7 @@ pub fn run() {
             window::hide_main_context_menu,
             window::show_main_context_status,
             window::pause_all_reminders_until_tomorrow,
+            window::show_reminders_paused_confirmation,
             window::show_main_settings_window,
             window::exit_application,
             settings_commands::load_app_settings,

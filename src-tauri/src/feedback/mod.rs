@@ -39,6 +39,18 @@ impl SystemFeedbackState {
     }
 }
 
+pub fn reminders_paused_confirmation() -> SystemFeedbackPayload {
+    let now = chrono::Local::now();
+    SystemFeedbackPayload {
+        id: format!("reminders-paused-{}", now.timestamp_millis()),
+        kind: "reminders_paused".to_string(),
+        severity: "notice".to_string(),
+        title: "提醒已暂停".to_string(),
+        message: "所有已启用提醒将在明天恢复。".to_string(),
+        occurred_at: now.timestamp(),
+    }
+}
+
 pub fn show(app: &AppHandle, payload: SystemFeedbackPayload) -> Result<(), String> {
     let state = app
         .try_state::<SystemFeedbackState>()
@@ -78,4 +90,20 @@ pub fn active_payload(app: &AppHandle) -> Result<Option<SystemFeedbackPayload>, 
     app.try_state::<SystemFeedbackState>()
         .ok_or_else(|| "系统反馈状态尚未初始化".to_string())?
         .active_payload()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reminders_paused_confirmation;
+
+    #[test]
+    fn builds_a_fixed_reminders_paused_confirmation() {
+        let payload = reminders_paused_confirmation();
+
+        assert!(payload.id.starts_with("reminders-paused-"));
+        assert_eq!(payload.kind, "reminders_paused");
+        assert_eq!(payload.severity, "notice");
+        assert_eq!(payload.title, "提醒已暂停");
+        assert_eq!(payload.message, "所有已启用提醒将在明天恢复。");
+    }
 }

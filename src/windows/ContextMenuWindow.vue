@@ -2,8 +2,6 @@
 /** ContextMenuWindow.vue - 桌宠主题化右键菜单。 */
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
-  CheckIcon,
-  ChevronLeftIcon,
   ChevronRightIcon,
   MessageCircleIcon,
   MonitorIcon,
@@ -14,22 +12,33 @@ import {
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { getPetRole, petRoles } from '@/config/petRoles'
+import ContextMenuExitDialog from '@/components/ContextMenuExitDialog.vue'
+import ContextMenuRolePicker from '@/components/ContextMenuRolePicker.vue'
+import { getPetRole } from '@/config/petRoles'
 import { useAppSettings } from '@/composables/useAppSettings'
 import type { PetRoleId } from '@/types/pet'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const { settings, ready, loadSettings } = useAppSettings()
-const menuRef = ref<HTMLElement | null>(null)
-const roleTriggerRef = ref<HTMLButtonElement | null>(null)
+const rootItemRefs = new Map<string, HTMLButtonElement>()
 const view = ref<'menu' | 'roles'>('menu')
+const exitDialogOpen = ref(false)
 const selectedRole = computed(() => settings.value.pet_role)
 const selectedRoleName = computed(() => getPetRole(selectedRole.value).displayName)
+const rootItemIds = ['chat', 'status', 'pause', 'settings', 'roles', 'exit'] as const
 let unlistenFocus: UnlistenFn | null = null
 let unlistenWindowFocus: UnlistenFn | null = null
 let focusedAt = 0
 let hasFocused = false
 const BLUR_HIDE_GUARD_MS = 160
+
+function setRootItemRef(itemId: string, element: unknown) {
+  if (element instanceof HTMLButtonElement) {
+    rootItemRefs.set(itemId, element)
+    return
+  }
+  rootItemRefs.delete(itemId)
+}
 
 async function hideMenu() {
   await invoke('hide_main_context_menu')
@@ -42,6 +51,22 @@ async function runAction(command: string) {
   } catch (error) {
     console.error('执行桌宠菜单操作失败:', error)
   }
+}
+
+async function pauseReminders() {
+  try {
+    await invoke('pause_all_reminders_until_tomorrow')
+  } catch (error) {
+    console.error('暂停提醒失败:', error)
+    return
+  }
+
+  try {
+    await invoke('show_reminders_paused_confirmation')
+  } catch (error) {
+    console.error('显示提醒暂停提示失败:', error)
+  }
+  await hideMenu()
 }
 
 async function selectRole(role: PetRoleId) {
@@ -57,19 +82,54 @@ async function selectRole(role: PetRoleId) {
   }
 }
 
-async function showRoles() {
+function focusRootItem(itemId: string) {
+  rootItemRefs.get(itemId)?.focus()
+}
+
+function moveRootItem(currentId: string, direction: number) {
+  const currentIndex = rootItemIds.indexOf(currentId as typeof rootItemIds[number])
+  const nextIndex = (currentIndex + direction + rootItemIds.length) % rootItemIds.length
+  focusRootItem(rootItemIds[nextIndex]!)
+}
+
+function handleRootKeydown(event: KeyboardEvent, itemId: string) {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (itemId === 'roles' && event.key === 'ArrowRight') {
+      showRoles()
+      return
+    }
+    moveRootItem(itemId, 1)
+    return
+  }
+  if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+    event.preventDefault()
+    moveRootItem(itemId, -1)
+    return
+  }
+  if (event.key === 'Home') {
+    event.preventDefault()
+    focusRootItem(rootItemIds[0])
+    return
+  }
+  if (event.key === 'End') {
+    event.preventDefault()
+    focusRootItem(rootItemIds[rootItemIds.length - 1])
+  }
+}
+
+function showRoles() {
   view.value = 'roles'
-  await nextTick()
-  menuRef.value?.focus()
 }
 
 async function showMenu() {
   view.value = 'menu'
   await nextTick()
-  roleTriggerRef.value?.focus()
+  focusRootItem('roles')
 }
 
 function handleEscape() {
+  if (exitDialogOpen.value) return
   if (view.value === 'roles') {
     void showMenu()
     return
@@ -82,7 +142,7 @@ async function focusMenu() {
   focusedAt = Date.now()
   view.value = 'menu'
   await nextTick()
-  menuRef.value?.focus()
+  focusRootItem(rootItemIds[0])
 }
 
 onMounted(async () => {
@@ -108,29 +168,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main
-    ref="menuRef"
-    class="context-menu"
-    tabindex="-1"
-    aria-label="桌宠快捷菜单"
-    @keydown.esc="handleEscape"
-  >
+  <main class="context-menu" tabindex="-1" aria-label="桌宠快捷菜单" @keydown.esc="handleEscape">
     <section v-if="ready" class="context-menu__surface">
       <template v-if="view === 'menu'">
         <div class="context-menu__group" aria-label="快捷操作">
-          <button class="context-menu__item" type="button" @click="runAction('show_chat_window')">
+          <button :ref="element => setRootItemRef('chat', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'chat')" @click="runAction('show_chat_window')">
             <MessageCircleIcon :size="15" aria-hidden="true" />
             <span>打开聊天</span>
           </button>
-          <button class="context-menu__item" type="button" @click="runAction('show_main_context_status')">
+          <button :ref="element => setRootItemRef('status', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'status')" @click="runAction('show_main_context_status')">
             <MonitorIcon :size="15" aria-hidden="true" />
             <span>查看状态</span>
           </button>
-          <button class="context-menu__item" type="button" @click="runAction('pause_all_reminders_until_tomorrow')">
+          <button :ref="element => setRootItemRef('pause', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'pause')" @click="pauseReminders">
             <PauseIcon :size="15" aria-hidden="true" />
             <span>提醒暂停到明天</span>
           </button>
-          <button class="context-menu__item" type="button" @click="runAction('show_main_settings_window')">
+          <button :ref="element => setRootItemRef('settings', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'settings')" @click="runAction('show_main_settings_window')">
             <SettingsIcon :size="15" aria-hidden="true" />
             <span>打开设置</span>
           </button>
@@ -138,14 +192,7 @@ onUnmounted(() => {
 
         <div class="context-menu__divider" role="separator"></div>
 
-        <button
-          ref="roleTriggerRef"
-          class="context-menu__item context-menu__item--roles"
-          type="button"
-          aria-haspopup="true"
-          :aria-expanded="false"
-          @click="showRoles"
-        >
+        <button :ref="element => setRootItemRef('roles', element)" class="context-menu__item context-menu__item--roles" type="button" aria-haspopup="dialog" @keydown="handleRootKeydown($event, 'roles')" @click="showRoles">
           <span>切换角色</span>
           <span class="context-menu__role-summary">{{ selectedRoleName }}</span>
           <ChevronRightIcon :size="15" aria-hidden="true" />
@@ -153,37 +200,17 @@ onUnmounted(() => {
 
         <div class="context-menu__divider" role="separator"></div>
 
-        <button class="context-menu__item context-menu__item--danger" type="button" @click="runAction('exit_application')">
+        <button :ref="element => setRootItemRef('exit', element)" class="context-menu__item context-menu__item--danger" type="button" @keydown="handleRootKeydown($event, 'exit')" @click="exitDialogOpen = true">
           <PowerIcon :size="15" aria-hidden="true" />
           <span>退出</span>
         </button>
       </template>
 
-      <template v-else>
-        <header class="context-menu__roles-header">
-          <button class="context-menu__back" type="button" aria-label="返回菜单" @click="showMenu">
-            <ChevronLeftIcon :size="16" aria-hidden="true" />
-          </button>
-          <h2 class="context-menu__title">切换角色</h2>
-        </header>
-        <div class="context-menu__role-list" role="radiogroup" aria-label="桌宠角色">
-          <button
-            v-for="role in petRoles"
-            :key="role.id"
-            class="context-menu__role"
-            :class="{ 'context-menu__role--selected': role.id === selectedRole }"
-            type="button"
-            role="radio"
-            :aria-checked="role.id === selectedRole"
-            @click="selectRole(role.id)"
-          >
-            <span class="context-menu__role-name">{{ role.displayName }}</span>
-            <CheckIcon v-if="role.id === selectedRole" :size="15" aria-label="当前角色" />
-          </button>
-        </div>
-      </template>
+      <ContextMenuRolePicker v-else :selected-role="selectedRole" @back="showMenu" @select="selectRole" />
     </section>
   </main>
+
+  <ContextMenuExitDialog v-model:open="exitDialogOpen" />
 </template>
 
 <style scoped>
@@ -210,12 +237,16 @@ onUnmounted(() => {
   gap: 1px;
 }
 
-.context-menu__item,
-.context-menu__role,
-.context-menu__back {
+.context-menu__item {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-height: 28px;
+  gap: 8px;
+  padding: 5px 8px;
   color: inherit;
+  font-size: 12px;
+  line-height: 16px;
   text-align: left;
   background: transparent;
   border: 0;
@@ -223,25 +254,11 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.context-menu__item,
-.context-menu__role {
-  width: 100%;
-  min-height: 28px;
-  gap: 8px;
-  padding: 5px 8px;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.context-menu__item:hover,
-.context-menu__role:hover,
-.context-menu__role--selected {
+.context-menu__item:hover {
   background: color-mix(in srgb, var(--accent) 88%, transparent);
 }
 
-.context-menu__item:focus-visible,
-.context-menu__role:focus-visible,
-.context-menu__back:focus-visible {
+.context-menu__item:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
@@ -270,42 +287,4 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--destructive) 10%, transparent);
 }
 
-.context-menu__roles-header {
-  display: flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 4px 3px;
-}
-
-.context-menu__back {
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.context-menu__title {
-  margin: 0 0 0 5px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
-}
-
-.context-menu__role-list {
-  display: grid;
-  min-height: 0;
-  max-height: 172px;
-  gap: 1px;
-  overflow-y: auto;
-}
-
-.context-menu__role {
-  justify-content: space-between;
-}
-
-.context-menu__role-name {
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>

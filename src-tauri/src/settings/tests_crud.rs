@@ -39,7 +39,7 @@ fn reset_all_restores_defaults() {
     let state = test_state("reset-all");
     state.set_pet_scale(1.1).expect("set scale");
     state
-        .set_pet_role("broom-witch".to_string())
+        .set_validated_pet_role("broom-witch".to_string())
         .expect("set pet role");
     state
         .create_reminder(interval_input("起来接水", 20))
