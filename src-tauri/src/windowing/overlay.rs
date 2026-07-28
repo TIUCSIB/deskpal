@@ -11,6 +11,7 @@ use super::{
         bubble_placement, context_menu_position, current_work_area, info_placement,
         OverlayPlacement,
     },
+    policy::{overlay_winner, OverlayWinner},
     OverlayState, CHAT_WINDOW, CONTEXT_MENU_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW,
     SYSTEM_FEEDBACK_WINDOW,
 };
@@ -37,16 +38,19 @@ pub fn reposition_visible_overlays(app: &AppHandle) {
 }
 
 pub fn hide_context_menu(app: &AppHandle) -> Result<(), String> {
-    app.get_webview_window(CONTEXT_MENU_WINDOW)
-        .ok_or_else(|| "找不到右键菜单窗口".to_string())?
-        .hide()
-        .map_err(|error| error.to_string())
+    hide_window(app, CONTEXT_MENU_WINDOW)?;
+    sync_overlay_visibility(app)
 }
 
 pub fn show_context_menu(app: &AppHandle, x: f64, y: f64) -> Result<(), String> {
     if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
         return Err("右键菜单坐标无效".to_string());
     }
+    hide_window(app, CHAT_WINDOW)?;
+    hide_window(app, REMINDER_WINDOW)?;
+    hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+    hide_window(app, INFO_WINDOW)?;
+
     let main = app
         .get_webview_window(MAIN_WINDOW)
         .ok_or_else(|| "找不到桌宠窗口".to_string())?;
@@ -73,25 +77,21 @@ pub fn toggle_chat_window(app: &AppHandle) -> Result<(), String> {
         .ok_or_else(|| "找不到聊天窗口".to_string())?;
     if window.is_visible().map_err(|error| error.to_string())? {
         window.hide().map_err(|error| error.to_string())?;
-        sync_info_window_visibility(app)?;
-        sync_reminder_window_visibility(app)?;
-        sync_system_feedback_window_visibility(app)?;
-        return Ok(());
+        return sync_overlay_visibility(app);
     }
 
     show_chat_window(app)
 }
 
 pub fn show_chat_window(app: &AppHandle) -> Result<(), String> {
+    hide_window(app, CONTEXT_MENU_WINDOW)?;
     let window = app
         .get_webview_window(CHAT_WINDOW)
         .ok_or_else(|| "找不到聊天窗口".to_string())?;
     if !window.is_visible().map_err(|error| error.to_string())? {
         present_overlay(app, CHAT_WINDOW)?;
-        sync_info_window_visibility(app)?;
-        sync_reminder_window_visibility(app)?;
-        sync_system_feedback_window_visibility(app)?;
     }
+    sync_overlay_visibility(app)?;
     window.set_focus().map_err(|error| error.to_string())?;
     window
         .emit("chat://focus-input", ())
@@ -99,63 +99,107 @@ pub fn show_chat_window(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn hide_chat_window(app: &AppHandle) -> Result<(), String> {
-    app.get_webview_window(CHAT_WINDOW)
-        .ok_or_else(|| "找不到聊天窗口".to_string())?
-        .hide()
-        .map_err(|error| error.to_string())?;
-    sync_info_window_visibility(app)?;
-    sync_reminder_window_visibility(app)?;
-    sync_system_feedback_window_visibility(app)
+    hide_window(app, CHAT_WINDOW)?;
+    sync_overlay_visibility(app)
 }
 
 pub fn request_info_window_visibility(app: &AppHandle, visible: bool) -> Result<(), String> {
     if let Some(state) = app.try_state::<OverlayState>() {
         state.set_info_requested_visible(visible)?;
     }
-    sync_info_window_visibility(app)
+    sync_overlay_visibility(app)
 }
 
 pub fn show_info_window_now(app: &AppHandle) -> Result<(), String> {
-    if chat_window_visible(app) {
-        return Ok(());
+    hide_window(app, CONTEXT_MENU_WINDOW)?;
+    if matches!(
+        overlay_winner(
+            false,
+            chat_window_visible(app),
+            reminder_active(app),
+            system_feedback_active(app),
+            true,
+        ),
+        OverlayWinner::Info
+    ) {
+        return present_overlay(app, INFO_WINDOW);
     }
-    present_overlay(app, INFO_WINDOW)
+    sync_overlay_visibility(app)
 }
 
 pub fn sync_info_window_visibility(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window(INFO_WINDOW)
-        .ok_or_else(|| "找不到信息窗口".to_string())?;
-    let should_show = match current_info_mode(app) {
-        InfoMode::Hidden => false,
-        InfoMode::Always => !chat_window_visible(app),
-        InfoMode::Auto => info_requested_visible(app) && !chat_window_visible(app),
-    };
-    if !should_show {
-        return window.hide().map_err(|error| error.to_string());
-    }
-    present_overlay(app, INFO_WINDOW)
+    sync_overlay_visibility(app)
 }
 
 pub fn sync_reminder_window_visibility(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window(REMINDER_WINDOW)
-        .ok_or_else(|| "找不到提醒窗口".to_string())?;
-    if !reminder_active(app) || chat_window_visible(app) {
-        return window.hide().map_err(|error| error.to_string());
-    }
-    present_overlay(app, REMINDER_WINDOW)?;
-    window.set_focus().map_err(|error| error.to_string())
+    sync_overlay_visibility(app)
 }
 
 pub fn sync_system_feedback_window_visibility(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window(SYSTEM_FEEDBACK_WINDOW)
-        .ok_or_else(|| "找不到系统反馈窗口".to_string())?;
-    if !system_feedback_active(app) || chat_window_visible(app) || reminder_active(app) {
-        return window.hide().map_err(|error| error.to_string());
+    sync_overlay_visibility(app)
+}
+
+pub fn sync_overlay_visibility(app: &AppHandle) -> Result<(), String> {
+    match overlay_winner(
+        context_menu_visible(app),
+        chat_window_visible(app),
+        reminder_active(app),
+        system_feedback_active(app),
+        info_should_show(app),
+    ) {
+        OverlayWinner::ContextMenu => hide_lower_overlays(app),
+        OverlayWinner::Chat => {
+            hide_window(app, REMINDER_WINDOW)?;
+            hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+            hide_window(app, INFO_WINDOW)
+        }
+        OverlayWinner::Reminder => {
+            hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+            hide_window(app, INFO_WINDOW)?;
+            present_reminder_overlay(app)
+        }
+        OverlayWinner::Feedback => {
+            hide_window(app, REMINDER_WINDOW)?;
+            hide_window(app, INFO_WINDOW)?;
+            present_overlay(app, SYSTEM_FEEDBACK_WINDOW)
+        }
+        OverlayWinner::Info => {
+            hide_window(app, REMINDER_WINDOW)?;
+            hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+            present_overlay(app, INFO_WINDOW)
+        }
+        OverlayWinner::None => {
+            hide_window(app, REMINDER_WINDOW)?;
+            hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+            hide_window(app, INFO_WINDOW)
+        }
     }
-    present_overlay(app, SYSTEM_FEEDBACK_WINDOW)
+}
+
+fn hide_lower_overlays(app: &AppHandle) -> Result<(), String> {
+    hide_window(app, CHAT_WINDOW)?;
+    hide_window(app, REMINDER_WINDOW)?;
+    hide_window(app, SYSTEM_FEEDBACK_WINDOW)?;
+    hide_window(app, INFO_WINDOW)
+}
+
+fn present_reminder_overlay(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(REMINDER_WINDOW)
+        .ok_or_else(|| "找不到提醒窗口".to_string())?;
+    let was_visible = window.is_visible().map_err(|error| error.to_string())?;
+    present_overlay(app, REMINDER_WINDOW)?;
+    if !was_visible {
+        window.set_focus().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn hide_window(app: &AppHandle, label: &str) -> Result<(), String> {
+    app.get_webview_window(label)
+        .ok_or_else(|| format!("找不到 {label} 窗口"))?
+        .hide()
+        .map_err(|error| error.to_string())
 }
 
 fn current_info_mode(app: &AppHandle) -> InfoMode {
@@ -163,6 +207,19 @@ fn current_info_mode(app: &AppHandle) -> InfoMode {
         .and_then(|settings| settings.get().ok())
         .map(|settings| settings.info_mode)
         .unwrap_or(InfoMode::Auto)
+}
+
+fn info_should_show(app: &AppHandle) -> bool {
+    match current_info_mode(app) {
+        InfoMode::Hidden => false,
+        InfoMode::Always => true,
+        InfoMode::Auto => info_requested_visible(app),
+    }
+}
+
+fn context_menu_visible(app: &AppHandle) -> bool {
+    app.get_webview_window(CONTEXT_MENU_WINDOW)
+        .is_some_and(|window| window.is_visible().unwrap_or(false))
 }
 
 fn chat_window_visible(app: &AppHandle) -> bool {

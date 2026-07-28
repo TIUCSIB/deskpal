@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** ContextMenuWindow.vue - 桌宠主题化右键菜单。 */
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import {
   ChevronRightIcon,
   MessageCircleIcon,
@@ -10,27 +10,22 @@ import {
   SettingsIcon,
 } from '@lucide/vue'
 import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import ContextMenuExitDialog from '@/components/ContextMenuExitDialog.vue'
+import ContextMenuReminderPicker from '@/components/ContextMenuReminderPicker.vue'
 import ContextMenuRolePicker from '@/components/ContextMenuRolePicker.vue'
 import { getPetRole } from '@/config/petRoles'
 import { useAppSettings } from '@/composables/useAppSettings'
+import { useContextMenuFocus } from '@/composables/useContextMenuFocus'
 import type { PetRoleId } from '@/types/pet'
-import { WINDOW_EVENTS } from '@/types/window'
 
 const { settings, ready, loadSettings } = useAppSettings()
 const rootItemRefs = new Map<string, HTMLButtonElement>()
-const view = ref<'menu' | 'roles'>('menu')
+const view = ref<'menu' | 'reminders' | 'roles'>('menu')
 const exitDialogOpen = ref(false)
+const reminders = computed(() => settings.value.reminders)
 const selectedRole = computed(() => settings.value.pet_role)
 const selectedRoleName = computed(() => getPetRole(selectedRole.value).displayName)
-const rootItemIds = ['chat', 'status', 'pause', 'settings', 'roles', 'exit'] as const
-let unlistenFocus: UnlistenFn | null = null
-let unlistenWindowFocus: UnlistenFn | null = null
-let focusedAt = 0
-let hasFocused = false
-const BLUR_HIDE_GUARD_MS = 160
+const rootItemIds = ['chat', 'status', 'reminders', 'settings', 'roles', 'exit'] as const
 
 function setRootItemRef(itemId: string, element: unknown) {
   if (element instanceof HTMLButtonElement) {
@@ -69,6 +64,22 @@ async function pauseReminders() {
   await hideMenu()
 }
 
+async function pauseReminder(reminderId: string) {
+  try {
+    await invoke('pause_enabled_reminder_until_tomorrow', { reminderId })
+  } catch (error) {
+    console.error('暂停提醒失败:', error)
+    return
+  }
+
+  try {
+    await invoke('show_reminder_paused_confirmation', { reminderId })
+  } catch (error) {
+    console.error('显示提醒暂停提示失败:', error)
+  }
+  await hideMenu()
+}
+
 async function selectRole(role: PetRoleId) {
   if (role === selectedRole.value) {
     await hideMenu()
@@ -95,7 +106,11 @@ function moveRootItem(currentId: string, direction: number) {
 function handleRootKeydown(event: KeyboardEvent, itemId: string) {
   if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
     event.preventDefault()
-    if (itemId === 'roles' && event.key === 'ArrowRight') {
+    if (event.key === 'ArrowRight' && itemId === 'reminders') {
+      showReminders()
+      return
+    }
+    if (event.key === 'ArrowRight' && itemId === 'roles') {
       showRoles()
       return
     }
@@ -118,18 +133,26 @@ function handleRootKeydown(event: KeyboardEvent, itemId: string) {
   }
 }
 
+function showReminders() {
+  view.value = 'reminders'
+}
+
 function showRoles() {
   view.value = 'roles'
 }
 
-async function showMenu() {
+async function showMenu(focusItem = 'roles') {
   view.value = 'menu'
   await nextTick()
-  focusRootItem('roles')
+  focusRootItem(focusItem)
 }
 
 function handleEscape() {
   if (exitDialogOpen.value) return
+  if (view.value === 'reminders') {
+    void showMenu('reminders')
+    return
+  }
   if (view.value === 'roles') {
     void showMenu()
     return
@@ -138,32 +161,16 @@ function handleEscape() {
 }
 
 async function focusMenu() {
-  hasFocused = true
-  focusedAt = Date.now()
+  exitDialogOpen.value = false
   view.value = 'menu'
   await nextTick()
   focusRootItem(rootItemIds[0])
 }
 
-onMounted(async () => {
-  await loadSettings()
-  unlistenFocus = await listen(WINDOW_EVENTS.focusContextMenu, () => {
-    void focusMenu()
-  })
-  unlistenWindowFocus = await getCurrentWindow().onFocusChanged(({ payload }) => {
-    if (payload) {
-      void focusMenu()
-      return
-    }
-    if (!hasFocused || Date.now() - focusedAt < BLUR_HIDE_GUARD_MS) return
-    hasFocused = false
-    void hideMenu()
-  })
-})
+useContextMenuFocus(focusMenu, hideMenu)
 
-onUnmounted(() => {
-  unlistenFocus?.()
-  unlistenWindowFocus?.()
+onMounted(() => {
+  void loadSettings()
 })
 </script>
 
@@ -180,9 +187,10 @@ onUnmounted(() => {
             <MonitorIcon :size="15" aria-hidden="true" />
             <span>查看状态</span>
           </button>
-          <button :ref="element => setRootItemRef('pause', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'pause')" @click="pauseReminders">
+          <button :ref="element => setRootItemRef('reminders', element)" class="context-menu__item context-menu__item--reminders" type="button" aria-haspopup="dialog" @keydown="handleRootKeydown($event, 'reminders')" @click="showReminders">
             <PauseIcon :size="15" aria-hidden="true" />
-            <span>提醒暂停到明天</span>
+            <span>管理提醒</span>
+            <ChevronRightIcon :size="15" aria-hidden="true" />
           </button>
           <button :ref="element => setRootItemRef('settings', element)" class="context-menu__item" type="button" @keydown="handleRootKeydown($event, 'settings')" @click="runAction('show_main_settings_window')">
             <SettingsIcon :size="15" aria-hidden="true" />
@@ -206,6 +214,14 @@ onUnmounted(() => {
         </button>
       </template>
 
+      <ContextMenuReminderPicker
+        v-else-if="view === 'reminders'"
+        :reminders="reminders"
+        @back="showMenu('reminders')"
+        @pause-all="pauseReminders"
+        @pause-one="pauseReminder"
+        @open-settings="runAction('show_main_reminder_settings')"
+      />
       <ContextMenuRolePicker v-else :selected-role="selectedRole" @back="showMenu" @select="selectRole" />
     </section>
   </main>
@@ -213,78 +229,4 @@ onUnmounted(() => {
   <ContextMenuExitDialog v-model:open="exitDialogOpen" />
 </template>
 
-<style scoped>
-.context-menu {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  outline: none;
-}
-
-.context-menu__surface {
-  display: grid;
-  height: 100%;
-  align-content: start;
-  padding: 4px;
-  color: var(--popover-foreground);
-  background: color-mix(in srgb, var(--popover) 96%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
-  border-radius: 11px;
-}
-
-.context-menu__group {
-  display: grid;
-  gap: 1px;
-}
-
-.context-menu__item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 28px;
-  gap: 8px;
-  padding: 5px 8px;
-  color: inherit;
-  font-size: 12px;
-  line-height: 16px;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-.context-menu__item:hover {
-  background: color-mix(in srgb, var(--accent) 88%, transparent);
-}
-
-.context-menu__item:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
-}
-
-.context-menu__divider {
-  height: 1px;
-  margin: 4px;
-  background: var(--border);
-}
-
-.context-menu__item--roles {
-  justify-content: flex-start;
-}
-
-.context-menu__role-summary {
-  min-width: 0;
-  margin-left: auto;
-  overflow: hidden;
-  color: var(--muted-foreground);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.context-menu__item--danger:hover {
-  color: var(--destructive);
-  background: color-mix(in srgb, var(--destructive) 10%, transparent);
-}
-
-</style>
+<style scoped src="./ContextMenuWindow.css"></style>

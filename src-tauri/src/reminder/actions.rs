@@ -72,6 +72,19 @@ pub fn pause_until_tomorrow(app: &AppHandle, reminder_id: String) -> Result<(), 
     app.emit(SETTINGS_UPDATED_EVENT, &updated)
         .map_err(|e| e.to_string())
 }
+
+pub fn pause_enabled_reminder_until_tomorrow(
+    app: &AppHandle,
+    reminder_id: String,
+) -> Result<String, String> {
+    let (updated, message) = settings_state(app)?
+        .pause_enabled_reminder_until(reminder_id.clone(), tomorrow_start().to_rfc3339())?;
+    state(app)?.configure(&updated)?;
+    sync_next(app, state(app)?.remove_active(&reminder_id)?)?;
+    app.emit(SETTINGS_UPDATED_EVENT, &updated)
+        .map_err(|error| error.to_string())?;
+    Ok(message)
+}
 pub fn remove_reminder(app: &AppHandle, id: &str) -> Result<(), String> {
     if let Some(active) = state(app)?.active()? {
         if active.payload.reminder_id == id && !active.preview {

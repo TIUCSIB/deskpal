@@ -1,0 +1,51 @@
+.context-menu {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  outline: none;
+}
+
+.context-menu__surface {
+  display: grid;
+  height: 100%;
+  align-content: start;
+  padding: 4px;
+  color: var(--popover-foreground);
+  background: color-mix(in srgb, var(--popover) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 11px;
+}
+
+.context-menu__group { display: grid; gap: 1px; }
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 28px;
+  gap: 8px;
+  padding: 5px 8px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.context-menu__item:hover { background: color-mix(in srgb, var(--accent) 88%, transparent); }
+.context-menu__item:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.context-menu__divider { height: 1px; margin: 4px; background: var(--border); }
+.context-menu__item--roles { justify-content: flex-start; }
+.context-menu__role-summary {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.context-menu__item--danger:hover {
+  color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+}

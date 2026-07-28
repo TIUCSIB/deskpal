@@ -33,6 +33,8 @@ import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import SettingsShell from '@/components/settings/SettingsShell.vue'
 import SettingsToggleRow from '@/components/settings/SettingsToggleRow.vue'
+import SettingsWelcomeCard from '@/components/settings/SettingsWelcomeCard.vue'
+import { useSettingsSectionFocus } from '@/composables/useSettingsSectionFocus'
 import { useSettingsWindow } from '@/composables/useSettingsWindow'
 import type { InfoMode } from '@/types/settings'
 
@@ -71,6 +73,7 @@ const {
 const INFO_MODE_ID = 'settings-info-mode'
 const SCALE_ID = 'settings-pet-scale'
 const SHORTCUT_ID = 'settings-shortcut'
+const { activeSection, setSectionRef } = useSettingsSectionFocus()
 
 function handleInfoModeValue(value: string) {
   handleInfoModeChange(value as InfoMode)
@@ -87,22 +90,16 @@ function handleScaleValue(value: number[] | undefined) {
       正在载入设置…
     </template>
 
-    <section v-if="!settings.onboarding_completed" class="settings-welcome" aria-label="使用提示">
-      <div>
-        <strong>欢迎使用 DeskPal</strong>
-        <p>可拖拽桌宠移动位置，点击打开聊天，悬停可互动；提醒和系统反馈会遵守免打扰时间。自定义角色仅支持受限资源包。</p>
-      </div>
-      <Button size="sm" class="rounded-xl" @click="completeOnboarding">知道了</Button>
-    </section>
+    <SettingsWelcomeCard v-if="!settings.onboarding_completed" @complete="completeOnboarding" />
 
-    <Tabs default-value="display" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
+    <Tabs v-model="activeSection" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
       <TabsList variant="line" class="w-full justify-start border-b border-border/70 bg-transparent p-0">
-        <TabsTrigger value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
-        <TabsTrigger value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
-        <TabsTrigger value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
-        <TabsTrigger value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
-        <TabsTrigger value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
-        <TabsTrigger value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('display', element)" value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('size', element)" value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('shortcut', element)" value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('reminder', element)" value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('role', element)" value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('system', element)" value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
       </TabsList>
 
       <TabsContent value="display" class="min-h-0 data-[state=inactive]:hidden">
@@ -285,28 +282,3 @@ function handleScaleValue(value: number[] | undefined) {
     </Tabs>
   </SettingsShell>
 </template>
-
-<style scoped>
-.settings-welcome {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--primary) 10%, var(--background));
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
-  border-radius: 14px;
-}
-
-.settings-welcome strong {
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.settings-welcome p {
-  margin: 3px 0 0;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 18px;
-}
-</style>

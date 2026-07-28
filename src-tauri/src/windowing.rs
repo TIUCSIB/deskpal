@@ -1,5 +1,6 @@
 mod overlay;
 mod placement;
+mod policy;
 mod state;
 
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
@@ -8,7 +9,7 @@ use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTI
 pub use overlay::{
     hide_chat_window, hide_context_menu, reposition_visible_overlays,
     request_info_window_visibility, show_chat_window, show_context_menu, show_info_window_now,
-    sync_info_window_visibility, sync_reminder_window_visibility,
+    sync_info_window_visibility, sync_overlay_visibility, sync_reminder_window_visibility,
     sync_system_feedback_window_visibility, toggle_chat_window,
 };
 use placement::{current_work_area, reclamped_main_position, resize_plan, restored_main_position};
@@ -181,7 +182,7 @@ pub fn hide_reminder_window(app: &AppHandle) -> Result<(), String> {
         .ok_or_else(|| "找不到提醒窗口".to_string())?
         .hide()
         .map_err(|error| error.to_string())?;
-    sync_system_feedback_window_visibility(app)
+    sync_overlay_visibility(app)
 }
 
 pub fn hide_system_feedback_window(app: &AppHandle) -> Result<(), String> {

@@ -4,8 +4,9 @@ mod idle;
 mod schedule;
 
 pub use actions::{
-    active_payload, complete, dismiss, pause_all_until_tomorrow, pause_until_tomorrow, preview,
-    remove_reminder, snooze, start_scheduler, sync_from_settings,
+    active_payload, complete, dismiss, pause_all_until_tomorrow,
+    pause_enabled_reminder_until_tomorrow, pause_until_tomorrow, preview, remove_reminder, snooze,
+    start_scheduler, sync_from_settings,
 };
 pub use history::{ReminderActivity, ReminderEventKind, ReminderHistoryState};
 

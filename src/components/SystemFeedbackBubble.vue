@@ -12,7 +12,10 @@ const icon = computed(() => (props.payload.severity === 'warning' ? '!' : '✓')
 <template>
   <section
     class="system-feedback-bubble"
-    :class="`system-feedback-bubble--${payload.severity}`"
+    :class="[
+      `system-feedback-bubble--${payload.severity}`,
+      `system-feedback-bubble--${payload.kind}`,
+    ]"
     aria-live="polite"
     :aria-label="payload.title"
   >
@@ -42,6 +45,7 @@ const icon = computed(() => (props.payload.severity === 'warning' ? '!' : '✓')
 }
 
 .system-feedback-bubble--warning { border-color: rgba(255, 149, 0, 0.45); }
+.system-feedback-bubble--reminders_paused { box-shadow: none; }
 .system-feedback-bubble__icon {
   display: grid;
   width: 24px;

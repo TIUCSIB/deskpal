@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
     feedback::{self, SystemFeedbackPayload},
@@ -137,13 +137,53 @@ pub fn pause_all_reminders_until_tomorrow(app: AppHandle) -> Result<(), String> 
 }
 
 #[tauri::command]
+pub fn pause_enabled_reminder_until_tomorrow(
+    app: AppHandle,
+    reminder_id: String,
+) -> Result<String, String> {
+    reminder::pause_enabled_reminder_until_tomorrow(&app, reminder_id)
+}
+
+#[tauri::command]
 pub fn show_reminders_paused_confirmation(app: AppHandle) -> Result<(), String> {
     feedback::show(&app, feedback::reminders_paused_confirmation())
 }
 
 #[tauri::command]
+pub fn show_reminder_paused_confirmation(
+    app: AppHandle,
+    reminder_id: String,
+) -> Result<(), String> {
+    let settings = app
+        .try_state::<crate::settings::SettingsState>()
+        .ok_or_else(|| "找不到应用设置状态".to_string())?
+        .get()?;
+    let reminder = settings
+        .reminders
+        .iter()
+        .find(|item| item.id == reminder_id)
+        .ok_or_else(|| "找不到该提醒".to_string())?;
+    if !reminder.enabled || reminder.paused_until.is_none() {
+        return Err("该提醒尚未暂停".to_string());
+    }
+    feedback::show(
+        &app,
+        feedback::reminder_paused_confirmation(&reminder.message),
+    )
+}
+
+#[tauri::command]
 pub fn show_main_settings_window(app: AppHandle) -> Result<(), String> {
     windowing::show_settings_window(&app)
+}
+
+#[tauri::command]
+pub fn show_main_reminder_settings(app: AppHandle) -> Result<(), String> {
+    windowing::show_settings_window(&app)?;
+    app.get_webview_window(windowing::SETTINGS_WINDOW)
+        .ok_or_else(|| "找不到设置窗口".to_string())?
+        .emit("settings://focus-section", "reminder")
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

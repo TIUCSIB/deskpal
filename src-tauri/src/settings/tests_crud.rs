@@ -149,6 +149,83 @@ fn pause_enabled_reminders_leaves_disabled_reminders_unchanged() {
 }
 
 #[test]
+fn pausing_one_enabled_reminder_preserves_other_reminders() {
+    let state = test_state("pause-one-reminder");
+    let first = state
+        .create_reminder(interval_input("喝水", 30))
+        .expect("create first reminder")
+        .reminders
+        .into_iter()
+        .next()
+        .expect("first reminder");
+    let second = state
+        .create_reminder(interval_input("休息", 45))
+        .expect("create second reminder")
+        .reminders
+        .into_iter()
+        .last()
+        .expect("second reminder");
+
+    let (updated, message) = state
+        .pause_enabled_reminder_until(first.id.clone(), "2030-01-01T00:00:00+00:00".to_string())
+        .expect("pause first reminder");
+
+    assert_eq!(message, "喝水");
+    assert_eq!(updated.reminders[0].id, first.id);
+    assert!(updated.reminders[0].paused_until.is_some());
+    assert_eq!(updated.reminders[1], second);
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
+fn pausing_one_reminder_rejects_invalid_or_unavailable_targets() {
+    let state = test_state("pause-one-reminder-validation");
+    let enabled = state
+        .create_reminder(interval_input("喝水", 30))
+        .expect("create enabled reminder")
+        .reminders
+        .into_iter()
+        .next()
+        .expect("enabled reminder");
+    let disabled = state
+        .create_reminder(interval_input("休息", 45))
+        .expect("create disabled reminder")
+        .reminders
+        .into_iter()
+        .last()
+        .expect("disabled reminder");
+    state
+        .set_reminder_enabled(disabled.id.clone(), false)
+        .expect("disable reminder");
+
+    assert_eq!(
+        state
+            .pause_enabled_reminder_until(
+                "unknown".to_string(),
+                "2030-01-01T00:00:00+00:00".to_string()
+            )
+            .expect_err("unknown reminder is rejected"),
+        "找不到该提醒"
+    );
+    assert_eq!(
+        state
+            .pause_enabled_reminder_until(disabled.id, "2030-01-01T00:00:00+00:00".to_string())
+            .expect_err("disabled reminder is rejected"),
+        "该提醒尚未启用"
+    );
+    state
+        .pause_enabled_reminder_until(enabled.id.clone(), "2030-01-01T00:00:00+00:00".to_string())
+        .expect("pause enabled reminder");
+    assert_eq!(
+        state
+            .pause_enabled_reminder_until(enabled.id, "2030-01-01T00:00:00+00:00".to_string())
+            .expect_err("active pause is rejected"),
+        "该提醒已暂停"
+    );
+    let _ = fs::remove_file(state.path);
+}
+
+#[test]
 fn creating_duplicate_reminders_assigns_unique_ids() {
     let state = test_state("reminder-ids");
     state

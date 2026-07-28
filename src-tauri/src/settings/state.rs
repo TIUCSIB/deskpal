@@ -178,6 +178,40 @@ impl SettingsState {
             }
         })
     }
+    pub fn pause_enabled_reminder_until(
+        &self,
+        id: String,
+        paused_until: String,
+    ) -> Result<(AppSettings, String), String> {
+        let mut data = self.lock()?;
+        let previous = data.settings.clone();
+        let reminder = data
+            .settings
+            .reminders
+            .iter_mut()
+            .find(|reminder| reminder.id == id)
+            .ok_or_else(|| "找不到该提醒".to_string())?;
+        if !reminder.enabled {
+            return Err("该提醒尚未启用".to_string());
+        }
+        let pause_active = reminder
+            .paused_until
+            .as_deref()
+            .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
+            .is_some_and(|until| until.with_timezone(&chrono::Utc) > chrono::Utc::now());
+        if pause_active {
+            return Err("该提醒已暂停".to_string());
+        }
+        let message = reminder.message.clone();
+        reminder.paused_until = normalize_pause(Some(paused_until));
+        let settings = data.settings.clone();
+        drop(data);
+        if let Err(error) = self.write(&settings) {
+            self.lock()?.settings = previous;
+            return Err(error);
+        }
+        Ok((settings, message))
+    }
     pub fn pause_enabled_reminders_until(
         &self,
         paused_until: String,

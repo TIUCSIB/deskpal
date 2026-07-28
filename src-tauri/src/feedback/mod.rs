@@ -40,13 +40,21 @@ impl SystemFeedbackState {
 }
 
 pub fn reminders_paused_confirmation() -> SystemFeedbackPayload {
+    confirmation_payload("所有已启用提醒将在明天恢复。")
+}
+
+pub fn reminder_paused_confirmation(message: &str) -> SystemFeedbackPayload {
+    confirmation_payload(&format!("「{message}」将在明天恢复。"))
+}
+
+fn confirmation_payload(message: &str) -> SystemFeedbackPayload {
     let now = chrono::Local::now();
     SystemFeedbackPayload {
         id: format!("reminders-paused-{}", now.timestamp_millis()),
         kind: "reminders_paused".to_string(),
         severity: "notice".to_string(),
         title: "提醒已暂停".to_string(),
-        message: "所有已启用提醒将在明天恢复。".to_string(),
+        message: message.to_string(),
         occurred_at: now.timestamp(),
     }
 }
@@ -94,7 +102,7 @@ pub fn active_payload(app: &AppHandle) -> Result<Option<SystemFeedbackPayload>, 
 
 #[cfg(test)]
 mod tests {
-    use super::reminders_paused_confirmation;
+    use super::{reminder_paused_confirmation, reminders_paused_confirmation};
 
     #[test]
     fn builds_a_fixed_reminders_paused_confirmation() {
@@ -105,5 +113,13 @@ mod tests {
         assert_eq!(payload.severity, "notice");
         assert_eq!(payload.title, "提醒已暂停");
         assert_eq!(payload.message, "所有已启用提醒将在明天恢复。");
+    }
+
+    #[test]
+    fn builds_a_fixed_single_reminder_confirmation() {
+        let payload = reminder_paused_confirmation("起来接水");
+
+        assert_eq!(payload.title, "提醒已暂停");
+        assert_eq!(payload.message, "「起来接水」将在明天恢复。");
     }
 }
