@@ -5,9 +5,11 @@ import InfoPanel from '@/components/InfoPanel.vue'
 import { useOverlayTransition } from '@/composables/useOverlayTransition'
 import { usePetContextReceiver } from '@/composables/useWindowBridge'
 
-const { context } = usePetContextReceiver()
+const { context } = usePetContextReceiver('info')
 const { revision, transitionStyle } = useOverlayTransition()
 const INFO_MIN_SCALE = 0.78
+
+const INFO_CONTENT_HEIGHT = 158
 
 const effectiveScale = computed(() => Math.max(context.value.scale, INFO_MIN_SCALE))
 const compact = computed(() => context.value.scale < 0.72)
@@ -15,7 +17,7 @@ const contentStyle = computed(() => ({
   ...transitionStyle.value,
   '--info-scale': `${effectiveScale.value}`,
   '--info-content-width': `${232 * effectiveScale.value}px`,
-  '--info-content-height': `${136 * effectiveScale.value}px`,
+  '--info-content-height': `${INFO_CONTENT_HEIGHT * effectiveScale.value}px`,
 }))
 </script>
 
@@ -26,7 +28,11 @@ const contentStyle = computed(() => ({
         class="info-window__panel"
         :class="revision % 2 === 0 ? 'info-window__panel--enter-a' : 'info-window__panel--enter-b'"
       >
-        <InfoPanel :info="context.info" :compact="compact" />
+        <InfoPanel
+          :info="context.info"
+          :interaction-text="context.interactionText"
+          :compact="compact"
+        />
       </div>
     </div>
   </main>
@@ -39,23 +45,21 @@ const contentStyle = computed(() => ({
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   background: transparent;
 }
 
 .info-window__content {
   width: var(--info-content-width, 232px);
-  height: var(--info-content-height, 136px);
+  height: var(--info-content-height, 158px);
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 .info-window__panel {
   width: 232px;
-  height: 136px;
+  height: 158px;
   display: flex;
   flex: 0 0 auto;
   align-items: center;

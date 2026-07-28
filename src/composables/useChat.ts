@@ -21,6 +21,7 @@ export function generateReply(
   mood: PetMood,
   roleId: PetRoleId = DEFAULT_PET_ROLE,
   random: () => number = Math.random,
+  interactionLevel = 0,
 ): string {
   const text = userText.trim().toLowerCase()
   const personality = getPetPersonality(roleId)
@@ -68,6 +69,13 @@ export function generateReply(
   }
 
   if (mood === 'sleepy') return chooseReply(personality.sleepyReplies, random)
+
+  if (interactionLevel >= 3) {
+    return chooseReply([
+      ...personality.interactionReplies.pet,
+      ...personality.defaultReplies,
+    ], random)
+  }
 
   const defaultReplies = [
     ...personality.defaultReplies,

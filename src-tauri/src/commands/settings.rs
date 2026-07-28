@@ -1,23 +1,23 @@
 use tauri::{AppHandle, Emitter, State};
 
 use crate::{
-    parse_chat_shortcut, reminder,
+    parse_chat_shortcut, reminder, role_packs,
     settings::{
-        AppSettings, InfoMode, Reminder, ReminderInput, SavedPosition, SavedWindowBounds,
-        SettingsState,
+        AppSettings, InfoMode, QuietHours, Reminder, ReminderInput, SavedPosition,
+        SavedWindowBounds, SettingsState,
     },
     sync_autostart, sync_chat_shortcut, windowing,
 };
 
 const SETTINGS_UPDATED_EVENT: &str = "pet://settings-updated";
 
-fn emit_settings(app: &AppHandle, settings: &AppSettings) {
+pub(super) fn emit_settings(app: &AppHandle, settings: &AppSettings) {
     if let Err(error) = app.emit(SETTINGS_UPDATED_EVENT, settings) {
         eprintln!("无法同步应用设置事件: {error}");
     }
 }
 
-fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
+pub(super) fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
     reminder::sync_from_settings(app)?;
     emit_settings(app, &settings);
     Ok(settings)
@@ -43,7 +43,10 @@ pub fn set_pet_role(
     settings: State<'_, SettingsState>,
     role: String,
 ) -> Result<AppSettings, String> {
-    finish_update(&app, settings.set_pet_role(role)?)
+    if !role_packs::is_valid_role(&app, &role) {
+        return Err("未安装或不受支持的角色。".to_string());
+    }
+    finish_update(&app, settings.set_validated_pet_role(role)?)
 }
 
 #[tauri::command]
@@ -151,6 +154,15 @@ pub fn set_main_window_show_in_taskbar(
 }
 
 #[tauri::command]
+pub fn set_reminder_quiet_hours(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    quiet_hours: QuietHours,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_quiet_hours(quiet_hours)?)
+}
+
+#[tauri::command]
 pub fn create_reminder(
     app: AppHandle,
     settings: State<'_, SettingsState>,
@@ -175,8 +187,14 @@ pub fn delete_reminder(
     id: String,
 ) -> Result<AppSettings, String> {
     let updated = settings.delete_reminder(id.clone())?;
-    reminder::remove_reminder(&app, &id)?;
-    finish_update(&app, updated)
+    if let Err(error) = reminder::remove_reminder(&app, &id) {
+        eprintln!("删除提醒后的运行状态同步失败: {error}");
+    }
+    if let Err(error) = reminder::sync_from_settings(&app) {
+        eprintln!("删除提醒后的调度同步失败: {error}");
+    }
+    emit_settings(&app, &updated);
+    Ok(updated)
 }
 
 #[tauri::command]
@@ -191,6 +209,15 @@ pub fn set_reminder_enabled(
         reminder::remove_reminder(&app, &id)?;
     }
     finish_update(&app, updated)
+}
+
+#[tauri::command]
+pub fn resume_reminder(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    id: String,
+) -> Result<AppSettings, String> {
+    finish_update(&app, settings.set_reminder_pause(id, None)?)
 }
 
 #[tauri::command]

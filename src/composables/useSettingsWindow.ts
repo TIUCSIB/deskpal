@@ -10,6 +10,7 @@ import {
   centerPosition,
   clampPosition,
   normalizeWindowSize,
+  monitorWorkArea,
   type WindowRect,
 } from '@/composables/settingsWindowGeometry'
 import {
@@ -24,6 +25,7 @@ const SAVE_BOUNDS_DELAY = 120
 const RESTORE_BOUNDS_LOCK_DELAY = 180
 
 type Unlisten = (() => void) | null
+export type ReminderSettings = ReturnType<typeof useReminderSettings>
 
 /** useSettingsWindow - 设置窗口状态与交互 */
 export function useSettingsWindow() {
@@ -50,8 +52,13 @@ export function useSettingsWindow() {
     shortcutDraft.value = shortcut
   }, { immediate: true })
 
-  function setFeedback(text: string) {
-    if (text) toast(text)
+  function setFeedback(text: string, isError = false) {
+    if (!text) return
+    if (isError) {
+      toast.error(text, { duration: 5000 })
+      return
+    }
+    toast(text)
   }
 
   function clearSaveBoundsTimer() {
@@ -100,12 +107,7 @@ export function useSettingsWindow() {
   async function resolveMonitorRect(): Promise<WindowRect | null> {
     const monitor = (await currentMonitor()) ?? (await primaryMonitor())
     if (!monitor) return null
-    return {
-      x: monitor.position.x,
-      y: monitor.position.y,
-      width: monitor.size.width,
-      height: monitor.size.height,
-    }
+    return monitorWorkArea(monitor)
   }
 
   async function restoreWindowBounds() {
@@ -208,6 +210,34 @@ export function useSettingsWindow() {
     setFeedback('已恢复全部默认设置')
   }
 
+  async function exportPortableSettings() {
+    try {
+      const exported = await invoke<boolean>('export_portable_settings')
+      if (exported) setFeedback('设置已导出')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '设置导出失败')
+    }
+  }
+
+  async function importPortableSettings() {
+    try {
+      const imported = await invoke<boolean>('import_portable_settings')
+      if (!imported) return
+      settings.value = await invoke<AppSettings>('load_app_settings')
+      setFeedback('设置已导入；设备相关配置已保留')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '设置导入失败')
+    }
+  }
+
+  async function completeOnboarding() {
+    try {
+      settings.value = await invoke<AppSettings>('complete_settings_onboarding')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '保存欢迎引导状态失败')
+    }
+  }
+
   onMounted(async () => {
     await loadSettings()
     await restoreWindowBounds()
@@ -247,7 +277,10 @@ export function useSettingsWindow() {
     resetPosition,
     resetSettingsWindowBounds,
     resetAllSettings,
-    ...reminderSettings,
+    exportPortableSettings,
+    importPortableSettings,
+    completeOnboarding,
+    reminderSettings,
     ...roleSettings,
   }
 }

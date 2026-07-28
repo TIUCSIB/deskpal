@@ -27,12 +27,14 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import ReminderSettingsSection from '@/components/settings/ReminderSettingsSection.vue'
+import ReminderSettingsTab from '@/components/settings/ReminderSettingsTab.vue'
 import RoleSettingsSection from '@/components/settings/RoleSettingsSection.vue'
 import SettingsActionRow from '@/components/settings/SettingsActionRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import SettingsShell from '@/components/settings/SettingsShell.vue'
 import SettingsToggleRow from '@/components/settings/SettingsToggleRow.vue'
+import SettingsWelcomeCard from '@/components/settings/SettingsWelcomeCard.vue'
+import { useSettingsSectionFocus } from '@/composables/useSettingsSectionFocus'
 import { useSettingsWindow } from '@/composables/useSettingsWindow'
 import type { InfoMode } from '@/types/settings'
 
@@ -57,30 +59,21 @@ const {
   resetPosition,
   resetSettingsWindowBounds,
   resetAllSettings,
-  intervalOptions,
-  snoozeOptions,
-  draft,
-  deleteTarget,
-  openCreateEditor,
-  openEditEditor,
-  cancelEditor,
-  updateDraft,
-  saveReminder,
-  setReminderEnabled,
-  previewReminder,
-  requestDelete,
-  cancelDelete,
-  confirmDelete,
-  formatSchedule,
-  formatPause,
+  exportPortableSettings,
+  importPortableSettings,
+  completeOnboarding,
+  reminderSettings,
   petRoles,
-  selectedRole,
+  rolePackLoading,
   handlePetRoleChange,
+  installRolePack,
+  removeRolePack,
 } = useSettingsWindow()
 
 const INFO_MODE_ID = 'settings-info-mode'
 const SCALE_ID = 'settings-pet-scale'
 const SHORTCUT_ID = 'settings-shortcut'
+const { activeSection, setSectionRef } = useSettingsSectionFocus()
 
 function handleInfoModeValue(value: string) {
   handleInfoModeChange(value as InfoMode)
@@ -97,14 +90,16 @@ function handleScaleValue(value: number[] | undefined) {
       正在载入设置…
     </template>
 
-    <Tabs default-value="display" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
+    <SettingsWelcomeCard v-if="!settings.onboarding_completed" @complete="completeOnboarding" />
+
+    <Tabs v-model="activeSection" orientation="horizontal" class="flex min-h-0 flex-1 flex-col gap-3">
       <TabsList variant="line" class="w-full justify-start border-b border-border/70 bg-transparent p-0">
-        <TabsTrigger value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
-        <TabsTrigger value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
-        <TabsTrigger value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
-        <TabsTrigger value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
-        <TabsTrigger value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
-        <TabsTrigger value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('display', element)" value="display" class="rounded-none px-4 py-2 text-[13px]">显示</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('size', element)" value="size" class="rounded-none px-4 py-2 text-[13px]">大小</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('shortcut', element)" value="shortcut" class="rounded-none px-4 py-2 text-[13px]">快捷键</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('reminder', element)" value="reminder" class="rounded-none px-4 py-2 text-[13px]">提醒</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('role', element)" value="role" class="rounded-none px-4 py-2 text-[13px]">角色</TabsTrigger>
+        <TabsTrigger :ref="element => setSectionRef('system', element)" value="system" class="rounded-none px-4 py-2 text-[13px]">系统</TabsTrigger>
       </TabsList>
 
       <TabsContent value="display" class="min-h-0 data-[state=inactive]:hidden">
@@ -214,33 +209,7 @@ function handleScaleValue(value: number[] | undefined) {
       </TabsContent>
 
       <TabsContent value="reminder" class="min-h-0 data-[state=inactive]:hidden">
-        <ScrollArea class="h-full">
-          <div class="pr-2">
-            <ReminderSettingsSection
-              :reminders="settings.reminders"
-              :draft="draft"
-              :delete-target="deleteTarget"
-              :interval-options="intervalOptions"
-              :snooze-options="snoozeOptions"
-              :format-schedule="formatSchedule"
-              :format-pause="formatPause"
-              @create="openCreateEditor"
-              @edit="openEditEditor"
-              @cancel="cancelEditor"
-              @save="saveReminder"
-              @update:draft-message="updateDraft('message', $event)"
-              @update:draft-schedule-type="updateDraft('scheduleType', $event)"
-              @update:draft-interval-minutes="updateDraft('intervalMinutes', $event)"
-              @update:draft-time="updateDraft('time', $event)"
-              @update:draft-snooze-minutes="updateDraft('snoozeMinutes', $event)"
-              @update:enabled="setReminderEnabled"
-              @preview="previewReminder"
-              @request-delete="requestDelete"
-              @cancel-delete="cancelDelete"
-              @confirm-delete="confirmDelete"
-            />
-          </div>
-        </ScrollArea>
+        <ReminderSettingsTab :settings="settings" :reminder-settings="reminderSettings" />
       </TabsContent>
 
       <TabsContent value="role" class="min-h-0 data-[state=inactive]:hidden">
@@ -248,9 +217,11 @@ function handleScaleValue(value: number[] | undefined) {
           <div class="pr-2">
             <RoleSettingsSection
               :selected-role-id="settings.pet_role"
-              :selected-role="selectedRole"
               :roles="petRoles"
+              :loading="rolePackLoading"
               @update:selected-role="handlePetRoleChange"
+              @import="installRolePack"
+              @remove="removeRolePack"
             />
           </div>
         </ScrollArea>
@@ -268,6 +239,8 @@ function handleScaleValue(value: number[] | undefined) {
               />
 
               <SettingsActionRow wrap align="start">
+                <Button variant="outline" class="rounded-xl" @click="exportPortableSettings">导出可移植设置</Button>
+                <Button variant="outline" class="rounded-xl" @click="importPortableSettings">导入可移植设置</Button>
                 <Button variant="outline" class="rounded-xl" @click="resetPosition">重置桌宠位置</Button>
                 <Button variant="outline" class="rounded-xl" @click="resetSettingsWindowBounds">
                   重置设置窗口位置和大小

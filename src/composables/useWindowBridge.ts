@@ -4,7 +4,12 @@
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import { emitTo, listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { PetContext, ReminderPayload } from '@/types/window'
+import type {
+  PetContext,
+  PetContextRecipient,
+  ReminderPayload,
+} from '@/types/window'
+import type { SystemFeedbackPayload } from '@/types/systemFeedback'
 import { WINDOW_EVENTS } from '@/types/window'
 
 const INITIAL_CONTEXT: PetContext = {
@@ -12,6 +17,8 @@ const INITIAL_CONTEXT: PetContext = {
   mood: 'normal',
   roleId: 'guga',
   scale: 1,
+  interactionText: null,
+  interactionLevel: 0,
 }
 
 const INITIAL_REMINDER: ReminderPayload = {
@@ -20,40 +27,134 @@ const INITIAL_REMINDER: ReminderPayload = {
   snooze_minutes: 5,
 }
 
+export function sendPetContext(recipient: PetContextRecipient, context: PetContext) {
+  return emitTo(recipient, WINDOW_EVENTS.petContext, context)
+}
+
 export async function broadcastPetContext(context: PetContext) {
   await Promise.allSettled([
-    emitTo('chat', WINDOW_EVENTS.petContext, context),
-    emitTo('info', WINDOW_EVENTS.petContext, context),
-    emitTo('reminder', WINDOW_EVENTS.petContext, context),
+    sendPetContext('chat', context),
+    sendPetContext('info', context),
+    sendPetContext('reminder', context),
+    sendPetContext('feedback', context),
   ])
 }
 
-export function usePetContextReceiver() {
+export function usePetContextReceiver(recipient: PetContextRecipient) {
   const context = ref<PetContext>({ ...INITIAL_CONTEXT })
   let unlisten: UnlistenFn | null = null
+  let startPromise: Promise<void> | null = null
+  let disposed = false
 
-  onMounted(async () => {
-    unlisten = await listen<PetContext>(WINDOW_EVENTS.petContext, (event) => {
+  function start() {
+    if (unlisten || startPromise) return startPromise ?? Promise.resolve()
+
+    disposed = false
+    startPromise = listen<PetContext>(WINDOW_EVENTS.petContext, (event) => {
       context.value = event.payload
+    }).then((nextUnlisten) => {
+      startPromise = null
+      if (disposed) {
+        nextUnlisten()
+        return
+      }
+      unlisten = nextUnlisten
+      void emitTo('main', WINDOW_EVENTS.petContextRequest, { recipient }).catch((error: unknown) => {
+        console.error('请求当前桌宠状态失败:', error)
+      })
     })
+
+    return startPromise
+  }
+
+  function dispose() {
+    disposed = true
+    unlisten?.()
+    unlisten = null
+  }
+
+  onMounted(() => {
+    void start()
   })
 
-  onUnmounted(() => unlisten?.())
+  onUnmounted(dispose)
 
-  return { context }
+  return { context, start, dispose }
+}
+
+export function useSystemFeedbackPayloadReceiver() {
+  const payload = ref<SystemFeedbackPayload | null>(null)
+  let unlisten: UnlistenFn | null = null
+  let startPromise: Promise<void> | null = null
+  let disposed = false
+
+  function start() {
+    if (unlisten || startPromise) return startPromise ?? Promise.resolve()
+
+    disposed = false
+    startPromise = listen<SystemFeedbackPayload>(WINDOW_EVENTS.systemFeedbackPayload, (event) => {
+      payload.value = event.payload
+    }).then((nextUnlisten) => {
+      startPromise = null
+      if (disposed) {
+        nextUnlisten()
+        return
+      }
+      unlisten = nextUnlisten
+    })
+    return startPromise
+  }
+
+  function dispose() {
+    disposed = true
+    unlisten?.()
+    unlisten = null
+  }
+
+  onMounted(() => {
+    void start()
+  })
+
+  onUnmounted(dispose)
+
+  return { payload, start, dispose }
 }
 
 export function useReminderPayloadReceiver() {
   const payload = ref<ReminderPayload>({ ...INITIAL_REMINDER })
   let unlisten: UnlistenFn | null = null
+  let startPromise: Promise<void> | null = null
+  let disposed = false
 
-  onMounted(async () => {
-    unlisten = await listen<ReminderPayload>(WINDOW_EVENTS.reminderPayload, (event) => {
+  function start() {
+    if (unlisten || startPromise) return startPromise ?? Promise.resolve()
+
+    disposed = false
+    startPromise = listen<ReminderPayload>(WINDOW_EVENTS.reminderPayload, (event) => {
       payload.value = event.payload
+    }).then((nextUnlisten) => {
+      startPromise = null
+      if (disposed) {
+        nextUnlisten()
+        return
+      }
+      unlisten = nextUnlisten
     })
+
+    return startPromise
+  }
+
+  function dispose() {
+    disposed = true
+    unlisten?.()
+    unlisten = null
+  }
+
+  onMounted(() => {
+    void start()
   })
 
-  onUnmounted(() => unlisten?.())
+  onUnmounted(dispose)
 
-  return { payload }
+  return { payload, start, dispose }
 }

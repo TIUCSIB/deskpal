@@ -8,7 +8,6 @@ describe('RoleSettingsSection', () => {
     const wrapper = mount(RoleSettingsSection, {
       props: {
         selectedRoleId: 'guga',
-        selectedRole: PET_ROLES[0]!,
         roles: PET_ROLES,
       },
     })
@@ -23,7 +22,6 @@ describe('RoleSettingsSection', () => {
     const wrapper = mount(RoleSettingsSection, {
       props: {
         selectedRoleId: 'guga',
-        selectedRole: PET_ROLES[0]!,
         roles: PET_ROLES,
       },
     })

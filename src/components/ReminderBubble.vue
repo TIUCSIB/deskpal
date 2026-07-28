@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  dismiss: []
+  complete: []
   snooze: []
   pauseUntilTomorrow: []
 }>()
@@ -48,8 +48,8 @@ const emit = defineEmits<{
           <button
             class="reminder-bubble__button reminder-bubble__button--primary"
             type="button"
-            title="知道了"
-            @click="emit('dismiss')"
+            title="完成提醒"
+            @click="emit('complete')"
           >
             ✓
           </button>

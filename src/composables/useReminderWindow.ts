@@ -6,7 +6,7 @@ import { usePetContextReceiver, useReminderPayloadReceiver } from '@/composables
 
 /** useReminderWindow - 提醒浮窗展示与交互 */
 export function useReminderWindow() {
-  const { context } = usePetContextReceiver()
+  const { context } = usePetContextReceiver('reminder')
   const { payload } = useReminderPayloadReceiver()
 
   const message = computed(() => payload.value.message || '记得休息一下～')
@@ -25,6 +25,10 @@ export function useReminderWindow() {
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : '提醒操作失败')
     }
+  }
+
+  async function completeReminder() {
+    await runAction('complete_reminder_window')
   }
 
   async function dismissReminder() {
@@ -47,6 +51,7 @@ export function useReminderWindow() {
     message,
     compact,
     snoozeText,
+    completeReminder,
     dismissReminder,
     snoozeReminder,
     pauseUntilTomorrow,

@@ -9,6 +9,7 @@ const {
   message,
   compact,
   snoozeText,
+  completeReminder,
   dismissReminder,
   snoozeReminder,
   pauseUntilTomorrow,
@@ -28,7 +29,7 @@ const animatedStyle = computed(() => transitionStyle.value)
       :message="message"
       :compact="compact"
       :snooze-text="snoozeText"
-      @dismiss="dismissReminder"
+      @complete="completeReminder"
       @snooze="snoozeReminder"
       @pause-until-tomorrow="pauseUntilTomorrow"
     />

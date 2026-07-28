@@ -3,7 +3,8 @@
  * 定义内置桌宠角色和精灵表动画配置。
  */
 
-export type PetRoleId = 'guga' | 'monthly-salary-cat' | 'broom-witch'
+/** 已验证的内置或已安装角色 ID。 */
+export type PetRoleId = string
 
 /** 单个动画定义 */
 export interface PetAnimation {

@@ -1,7 +1,9 @@
 use super::placement::{
-    anchored_resize_position, bubble_placement, info_placement, Bounds, OverlaySide,
+    anchored_resize_position, bubble_placement, context_menu_position, default_main_position,
+    info_placement, reclamped_main_position, resize_plan, restored_main_position, Bounds,
+    OverlaySide,
 };
-use super::{clamp_scale, MAX_PET_SCALE, MIN_PET_SCALE};
+use super::{clamp_scale, info_window_size, MAX_PET_SCALE, MIN_PET_SCALE};
 use tauri::{PhysicalPosition, PhysicalSize};
 
 const AREA: Bounds = Bounds {
@@ -21,6 +23,61 @@ fn scale_is_limited_to_supported_range() {
 }
 
 #[test]
+fn info_window_size_keeps_safe_padding_at_minimum_scale() {
+    let size = info_window_size(MIN_PET_SCALE);
+
+    assert_eq!(size.width, 188.96);
+    assert_eq!(size.height, 131.24);
+}
+
+#[test]
+fn info_window_size_matches_default_and_maximum_scales() {
+    let default_size = info_window_size(1.0);
+    let maximum_size = info_window_size(MAX_PET_SCALE);
+
+    assert_eq!(default_size.width, 240.0);
+    assert_eq!(default_size.height, 166.0);
+    assert_eq!(maximum_size.width, 286.4);
+    assert_eq!(maximum_size.height, 197.6);
+}
+
+#[test]
+fn info_window_size_normalizes_non_finite_scale() {
+    let size = info_window_size(f64::INFINITY);
+
+    assert_eq!(size.width, 240.0);
+    assert_eq!(size.height, 166.0);
+}
+
+#[test]
+fn context_menu_uses_click_position_and_clamps_to_work_area() {
+    let position = context_menu_position(
+        PhysicalPosition::new(1600, 700),
+        1.5,
+        180.0,
+        140.0,
+        PhysicalSize::new(304, 428),
+        AREA,
+    );
+
+    assert_eq!(position, PhysicalPosition::new(1616, 612));
+}
+
+#[test]
+fn context_menu_normalizes_invalid_dpi() {
+    let position = context_menu_position(
+        PhysicalPosition::new(100, 100),
+        f64::NAN,
+        24.0,
+        36.0,
+        PhysicalSize::new(304, 428),
+        AREA,
+    );
+
+    assert_eq!(position, PhysicalPosition::new(124, 136));
+}
+
+#[test]
 fn resize_keeps_bottom_center_anchor() {
     let position = anchored_resize_position(
         PhysicalPosition::new(800, 700),
@@ -30,6 +87,104 @@ fn resize_keeps_bottom_center_anchor() {
     );
 
     assert_eq!(position, PhysicalPosition::new(750, 590));
+}
+
+#[test]
+fn restored_position_uses_default_inside_taskbar_work_area() {
+    let work_area = Bounds {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1040,
+    };
+
+    assert_eq!(
+        restored_main_position(None, PhysicalSize::new(200, 220), work_area),
+        PhysicalPosition::new(1696, 784),
+    );
+    assert_eq!(
+        default_main_position(PhysicalSize::new(200, 220), work_area),
+        PhysicalPosition::new(1696, 784),
+    );
+}
+
+#[test]
+fn restored_position_clamps_saved_coordinates_on_negative_monitor() {
+    let work_area = Bounds {
+        x: -1920,
+        y: 40,
+        width: 1920,
+        height: 1000,
+    };
+
+    assert_eq!(
+        restored_main_position(
+            Some(PhysicalPosition::new(80, -100)),
+            PhysicalSize::new(300, 200),
+            work_area,
+        ),
+        PhysicalPosition::new(-300, 40),
+    );
+}
+
+#[test]
+fn resize_plan_uses_destination_monitor_dpi_and_work_area() {
+    let work_area = Bounds {
+        x: -1600,
+        y: 0,
+        width: 1600,
+        height: 860,
+    };
+    let plan = resize_plan(
+        PhysicalPosition::new(-180, 700),
+        PhysicalSize::new(240, 160),
+        (200.0, 160.0),
+        1.5,
+        work_area,
+    )
+    .expect("valid resize plan");
+
+    assert_eq!(plan.size, PhysicalSize::new(300, 240));
+    assert_eq!(plan.position, PhysicalPosition::new(-300, 620));
+}
+
+#[test]
+fn resize_plan_rejects_invalid_dpi_or_size() {
+    assert!(resize_plan(
+        PhysicalPosition::new(0, 0),
+        PhysicalSize::new(100, 100),
+        (100.0, 100.0),
+        0.0,
+        AREA,
+    )
+    .is_none());
+    assert!(resize_plan(
+        PhysicalPosition::new(0, 0),
+        PhysicalSize::new(100, 100),
+        (0.0, 100.0),
+        1.0,
+        AREA,
+    )
+    .is_none());
+}
+
+#[test]
+fn dpi_change_reclamps_main_before_overlay_repositioning() {
+    let taskbar_work_area = Bounds {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1040,
+    };
+
+    assert_eq!(
+        reclamped_main_position(
+            PhysicalPosition::new(1800, 900),
+            PhysicalSize::new(300, 240),
+            taskbar_work_area,
+        ),
+        PhysicalPosition::new(1620, 800),
+    );
 }
 
 #[test]

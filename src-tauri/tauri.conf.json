@@ -27,6 +27,21 @@
         "visible": true
       },
       {
+        "label": "context-menu",
+        "title": "桌宠菜单",
+        "url": "index.html?window=context-menu",
+        "width": 240,
+        "height": 216,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": true,
+        "visible": false
+      },
+      {
         "label": "chat",
         "title": "桌宠聊天",
         "url": "index.html?window=chat",
@@ -46,7 +61,7 @@
         "title": "桌宠状态",
         "url": "index.html?window=info",
         "width": 240,
-        "height": 144,
+        "height": 166,
         "decorations": false,
         "transparent": true,
         "shadow": false,
@@ -73,6 +88,21 @@
         "visible": false
       },
       {
+        "label": "feedback",
+        "title": "桌宠系统反馈",
+        "url": "index.html?window=feedback",
+        "width": 248,
+        "height": 112,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false
+      },
+      {
         "label": "settings",
         "title": "桌宠设置",
         "url": "index.html?window=settings",
@@ -91,12 +121,15 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc: http://ipc.localhost; base-uri 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' http://role-pack.localhost role-pack:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "icons/tray.ico"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

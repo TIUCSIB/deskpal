@@ -1,7 +1,11 @@
+use std::fs;
+
 use tauri::{
+    image::Image,
     menu::{MenuBuilder, MenuEvent},
+    path::BaseDirectory,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle,
+    AppHandle, Manager,
 };
 
 use crate::windowing;
@@ -9,6 +13,31 @@ use crate::windowing;
 pub const SHOW_MAIN_ID: &str = "show-main";
 pub const OPEN_SETTINGS_ID: &str = "open-settings";
 pub const QUIT_ID: &str = "quit";
+const TRAY_ICON_RESOURCE: &str = "icons/tray.ico";
+
+fn load_tray_icon(app: &AppHandle) -> Option<Image<'static>> {
+    let path = match app.path().resolve(TRAY_ICON_RESOURCE, BaseDirectory::Resource) {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("无法解析托盘图标资源路径: {error}");
+            return None;
+        }
+    };
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("无法读取托盘图标资源 {}: {error}", path.display());
+            return None;
+        }
+    };
+    match Image::from_bytes(&bytes) {
+        Ok(icon) => Some(icon),
+        Err(error) => {
+            eprintln!("无法解析托盘图标资源 {}: {error}", path.display());
+            None
+        }
+    }
+}
 
 pub fn create_tray(app: &AppHandle) -> Result<(), String> {
     let tray_menu = MenuBuilder::new(app)
@@ -23,7 +52,6 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
         .menu(&tray_menu)
         .tooltip("DeskPal")
         .show_menu_on_left_click(false)
-        .on_menu_event(handle_menu_event)
         .on_tray_icon_event(|tray, event| {
             if matches!(
                 event,
@@ -37,7 +65,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
             }
         });
 
-    if let Some(icon) = app.default_window_icon().cloned() {
+    if let Some(icon) = load_tray_icon(app).or_else(|| app.default_window_icon().cloned()) {
         builder = builder.icon(icon);
     }
 
@@ -45,7 +73,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     match event.id().as_ref() {
         SHOW_MAIN_ID => {
             if let Err(error) = windowing::show_main_window(app) {

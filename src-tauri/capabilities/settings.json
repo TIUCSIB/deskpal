@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings-window-controls",
+  "description": "设置窗口保存几何信息和受控文件对话框所需的最小权限。",
+  "windows": ["settings"],
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:window:allow-inner-position",
+    "core:window:allow-inner-size",
+    "core:window:allow-current-monitor",
+    "core:window:allow-primary-monitor",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "dialog:allow-open",
+    "dialog:allow-save"
+  ]
+}

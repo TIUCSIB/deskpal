@@ -14,6 +14,7 @@ describe('usePetBehavior', () => {
     expect(behavior.animationName.value).toBe('Failed')
 
     behavior.setHovering(true)
+    vi.advanceTimersByTime(900)
     expect(behavior.animationName.value).toBe('Waving')
 
     behavior.activate()
@@ -67,6 +68,7 @@ describe('usePetBehavior', () => {
     expect(behavior.animationName.value).toBe('Waiting')
 
     behavior.setHovering(true)
+    vi.advanceTimersByTime(900)
     vi.advanceTimersByTime(60000)
     expect(behavior.animationName.value).toBe('Waving')
 
@@ -77,12 +79,64 @@ describe('usePetBehavior', () => {
   })
 
   it('uses a role-specific mood baseline without changing interaction priority', () => {
+    vi.useFakeTimers()
     const behavior = usePetBehavior(() => 0)
 
     behavior.setRole('monthly-salary-cat', ['Idle', 'RunLeft', 'RunRight', 'Waving', 'Jumping', 'Failed', 'Waiting', 'Review'])
     expect(behavior.animationName.value).toBe('Waiting')
 
     behavior.setHovering(true)
+    expect(behavior.animationName.value).toBe('Waiting')
+    vi.advanceTimersByTime(900)
+    expect(behavior.animationName.value).toBe('Waving')
+    behavior.dispose()
+  })
+
+  it('waits before turning a raw hover into petting feedback', () => {
+    vi.useFakeTimers()
+    const behavior = usePetBehavior()
+
+    behavior.setMood('warning')
+    behavior.setHovering(true)
+    vi.advanceTimersByTime(899)
+    expect(behavior.animationName.value).toBe('Failed')
+
+    vi.advanceTimersByTime(1)
+    expect(behavior.petting.value).toBe(true)
+    expect(behavior.animationName.value).toBe('Waving')
+    behavior.dispose()
+  })
+
+  it('cancels pending petting when the pointer leaves or a drag begins', () => {
+    vi.useFakeTimers()
+    const behavior = usePetBehavior()
+
+    behavior.setHovering(true)
+    vi.advanceTimersByTime(400)
+    behavior.setHovering(false)
+    vi.advanceTimersByTime(600)
+    expect(behavior.petting.value).toBe(false)
+    expect(behavior.animationName.value).toBe('Idle')
+
+    behavior.setHovering(true)
+    behavior.setDragging('right')
+    vi.advanceTimersByTime(900)
+    expect(behavior.animationName.value).toBe('RunRight')
+    expect(behavior.petting.value).toBe(false)
+    behavior.dispose()
+  })
+
+  it('prioritizes click feedback over active petting', () => {
+    vi.useFakeTimers()
+    const behavior = usePetBehavior()
+
+    behavior.setHovering(true)
+    vi.advanceTimersByTime(900)
+    expect(behavior.animationName.value).toBe('Waving')
+
+    behavior.triggerClickFeedback()
+    expect(behavior.animationName.value).toBe('Jumping')
+    vi.advanceTimersByTime(900)
     expect(behavior.animationName.value).toBe('Waving')
     behavior.dispose()
   })

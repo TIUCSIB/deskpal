@@ -10,6 +10,10 @@ const INFO: SystemInfo = {
   disk_usage: 61.7,
   network_down_kbps: 128.4,
   network_up_kbps: 32.1,
+  network_connected: true,
+  battery_percent: null,
+  battery_charging: null,
+  idle_seconds: null,
   uptime_secs: 3661,
 }
 

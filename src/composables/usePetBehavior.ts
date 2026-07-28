@@ -7,6 +7,7 @@ import type { PetMood } from '@/types/system'
 import { chooseWeighted } from '@/utils/weightedChoice'
 
 const INTERACTION_RETURN_DELAY = 900
+const PETTING_DELAY_MS = 900
 const IDLE_ANIMATION_DELAY = 15000
 const AMBIENT_ANIMATION_DELAY = 60000
 const REQUIRED_ANIMATIONS = ['Idle', 'RunLeft', 'RunRight', 'Waving', 'Jumping', 'Failed']
@@ -17,6 +18,7 @@ export function usePetBehavior(random: () => number = Math.random) {
   const roleId = ref<PetRoleId>(DEFAULT_PET_ROLE)
   const availableAnimations = ref<string[]>([...REQUIRED_ANIMATIONS, 'Waiting', 'Review', 'Running'])
   const hovering = ref(false)
+  const petting = ref(false)
   const dragDirection = ref<DragDirection | null>(null)
   const activated = ref(false)
   const ambientAnimation = ref<string | null>(null)
@@ -24,6 +26,7 @@ export function usePetBehavior(random: () => number = Math.random) {
   let idleTimer: ReturnType<typeof setTimeout> | null = null
   let ambientTimer: ReturnType<typeof setTimeout> | null = null
   let activationTimer: ReturnType<typeof setTimeout> | null = null
+  let pettingTimer: ReturnType<typeof setTimeout> | null = null
   let scheduleGeneration = 0
 
   const personality = computed(() => getPetPersonality(roleId.value))
@@ -33,7 +36,7 @@ export function usePetBehavior(random: () => number = Math.random) {
     if (dragDirection.value === 'left') return resolveAnimation('RunLeft')
     if (dragDirection.value === 'right') return resolveAnimation('RunRight')
     if (activated.value) return resolveAnimation('Jumping')
-    if (hovering.value) return resolveAnimation('Waving')
+    if (petting.value) return resolveAnimation('Waving')
     if (mood.value === 'warning') return resolveAnimation(personality.value.moodAnimations.warning)
     return resolveAnimation(ambientAnimation.value ?? personality.value.moodAnimations[mood.value])
   })
@@ -62,6 +65,12 @@ export function usePetBehavior(random: () => number = Math.random) {
     activationTimer = null
   }
 
+  function clearPettingTimer() {
+    if (!pettingTimer) return
+    clearTimeout(pettingTimer)
+    pettingTimer = null
+  }
+
   function clearAmbientSchedule() {
     scheduleGeneration += 1
     clearIdleTimer()
@@ -70,7 +79,7 @@ export function usePetBehavior(random: () => number = Math.random) {
   }
 
   function canScheduleAmbient() {
-    return !dragDirection.value && !activated.value && !hovering.value && mood.value !== 'warning'
+    return !dragDirection.value && !activated.value && !petting.value && mood.value !== 'warning'
   }
 
   function scheduleAmbient() {
@@ -110,24 +119,49 @@ export function usePetBehavior(random: () => number = Math.random) {
     resetForRoleChange()
   }
 
-  /** 同步像素级悬停状态 */
+  /** 同步像素级悬停状态，持续悬停后才进入抚摸反馈 */
   function setHovering(nextHovering: boolean) {
     if (hovering.value === nextHovering) return
     hovering.value = nextHovering
-    if (nextHovering) clearAmbientSchedule()
-    else scheduleAmbient()
+    clearPettingTimer()
+
+    if (!nextHovering) {
+      petting.value = false
+      scheduleAmbient()
+      return
+    }
+
+    schedulePetting()
+  }
+
+  function schedulePetting() {
+    clearPettingTimer()
+    if (!hovering.value || dragDirection.value) return
+    pettingTimer = setTimeout(() => {
+      pettingTimer = null
+      if (!hovering.value || dragDirection.value) return
+      petting.value = true
+      clearAmbientSchedule()
+    }, PETTING_DELAY_MS)
   }
 
   /** 开始或更新拖拽状态 */
   function setDragging(direction: DragDirection | null) {
     if (dragDirection.value === direction) return
     dragDirection.value = direction
-    if (direction) clearAmbientSchedule()
-    else scheduleAmbient()
+    if (direction) {
+      clearPettingTimer()
+      petting.value = false
+      clearAmbientSchedule()
+    } else if (hovering.value) {
+      schedulePetting()
+    } else {
+      scheduleAmbient()
+    }
   }
 
-  /** 播放一次点击激活动画，结束后按当前事实状态恢复 */
-  function activate() {
+  /** 播放一次点击反馈动画，结束后按当前事实状态恢复 */
+  function triggerClickFeedback() {
     activated.value = true
     clearActivationTimer()
     clearAmbientSchedule()
@@ -136,6 +170,11 @@ export function usePetBehavior(random: () => number = Math.random) {
       activationTimer = null
       scheduleAmbient()
     }, INTERACTION_RETURN_DELAY)
+  }
+
+  /** 兼容现有非点击交互调用 */
+  function activate() {
+    triggerClickFeedback()
   }
 
   /** 角色变更后清理旧的日常动画与计时器 */
@@ -154,18 +193,21 @@ export function usePetBehavior(random: () => number = Math.random) {
     clearIdleTimer()
     clearAmbientTimer()
     clearActivationTimer()
+    clearPettingTimer()
   }
 
   return {
     mood,
     roleId,
     hovering,
+    petting,
     animationName,
     animationRevision,
     setMood,
     setRole,
     setHovering,
     setDragging,
+    triggerClickFeedback,
     activate,
     resetForRoleChange,
     start,
