@@ -225,7 +225,7 @@ fn png_dimensions(content: &[u8]) -> Result<(u32, u32), String> {
 }
 
 fn webp_dimensions(content: &[u8]) -> Result<(u32, u32), String> {
-    if content.len() < 30 || &content[..4] != b"RIFF" || &content[8..12] != b"WEBP" {
+    if content.len() < 12 || &content[..4] != b"RIFF" || &content[8..12] != b"WEBP" {
         return Err("精灵图不是有效 WebP 文件。".to_string());
     }
     match &content[12..16] {
@@ -233,6 +233,13 @@ fn webp_dimensions(content: &[u8]) -> Result<(u32, u32), String> {
             1 + u32::from_le_bytes([content[24], content[25], content[26], 0]),
             1 + u32::from_le_bytes([content[27], content[28], content[29], 0]),
         )),
+        b"VP8L" if content.len() >= 25 && content[20] == 0x2f => {
+            let width = 1 + u32::from(content[21] | ((content[22] & 0x3f) << 8));
+            let height = 1 + u32::from(
+                (content[22] >> 6) | (content[23] << 2) | ((content[24] & 0x0f) << 10),
+            );
+            Ok((width, height))
+        }
         b"VP8 " if content.len() >= 30 && content[23..26] == [0x9d, 0x01, 0x2a] => Ok((
             u16::from_le_bytes(content[26..28].try_into().unwrap()) as u32 & 0x3fff,
             u16::from_le_bytes(content[28..30].try_into().unwrap()) as u32 & 0x3fff,
@@ -255,6 +262,13 @@ mod tests {
             assert!(validate_entry_name(name).is_err());
         }
         assert!(validate_entry_name("manifest.json").is_ok());
+    }
+
+    #[test]
+    fn reads_lossless_webp_dimensions() {
+        let content = b"RIFF\xc8\x7b\x1a\x00WEBPVP8L\xbb\x7b\x1a\x00\x2f\xff\xc5\xd3\x11";
+        assert_eq!(webp_dimensions(content), Ok((1536, 1872)));
+        assert!(webp_dimensions(b"RIFF\0\0\0\0WEBPVP8L\0\0\0\0\0").is_err());
     }
 
     #[test]

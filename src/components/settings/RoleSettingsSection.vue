@@ -30,7 +30,7 @@ const emit = defineEmits<{
       </Button>
     </div>
     <p class="role-settings__hint">
-      支持固定布局的 pet.json + PNG/WebP 精灵图 ZIP，也支持包含完整 manifest.json 的 ZIP 文件。
+      旧版 pet.json ZIP 需与内置角色同为 1536×1872 的九行精灵图；其他布局请使用完整 manifest.json。
     </p>
 
     <div class="role-settings__list" aria-label="桌宠角色列表">

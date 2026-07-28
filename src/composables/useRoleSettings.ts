@@ -13,7 +13,7 @@ import type { PetRoleId } from '@/types/pet'
 export function useRoleSettings(
   settings: { value: AppSettings },
   invokeSetting: (command: string, payload?: Record<string, unknown>) => Promise<AppSettings>,
-  setFeedback: (text: string) => void,
+  setFeedback: (text: string, isError?: boolean) => void,
 ) {
   const loading = ref(false)
   const selectedRole = computed(() => getPetRole(settings.value.pet_role))
@@ -38,7 +38,7 @@ export function useRoleSettings(
       setFeedback(`已导入角色包：${role.displayName}`)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '角色包导入失败'
-      setFeedback(message)
+      setFeedback(message, true)
     } finally {
       loading.value = false
     }
@@ -55,7 +55,7 @@ export function useRoleSettings(
       setFeedback('角色包已删除')
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '角色包删除失败'
-      setFeedback(message)
+      setFeedback(message, true)
     }
   }
 

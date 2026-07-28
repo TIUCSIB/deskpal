@@ -52,8 +52,13 @@ export function useSettingsWindow() {
     shortcutDraft.value = shortcut
   }, { immediate: true })
 
-  function setFeedback(text: string) {
-    if (text) toast(text)
+  function setFeedback(text: string, isError = false) {
+    if (!text) return
+    if (isError) {
+      toast.error(text, { duration: 5000 })
+      return
+    }
+    toast(text)
   }
 
   function clearSaveBoundsTimer() {
