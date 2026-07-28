@@ -13,21 +13,36 @@ export function useAppSettings() {
   const ready = ref(false)
   let unlisten: UnlistenFn | null = null
 
-  async function loadSettings() {
-    const [loadedSettings, installedRoles] = await Promise.all([
-      invoke<AppSettings>('load_app_settings'),
-      invoke<InstalledPetRole[]>('list_installed_role_packs'),
-    ])
+  async function refreshInstalledRoles() {
+    const installedRoles = await invoke<InstalledPetRole[]>('list_installed_role_packs')
     replaceInstalledPetRoles(installedRoles)
+  }
+
+  async function loadSettings() {
+    const [loadedSettings] = await Promise.all([
+      invoke<AppSettings>('load_app_settings'),
+      refreshInstalledRoles(),
+    ])
     settings.value = loadedSettings
     ready.value = true
     return settings.value
   }
 
+  async function applySettingsUpdate(updated: AppSettings) {
+    if (updated.pet_role !== settings.value.pet_role) {
+      try {
+        await refreshInstalledRoles()
+      } catch (error) {
+        console.error('同步自定义角色失败:', error)
+      }
+    }
+    settings.value = updated
+    ready.value = true
+  }
+
   onMounted(async () => {
     unlisten = await listen<AppSettings>(WINDOW_EVENTS.settingsUpdated, (event) => {
-      settings.value = event.payload
-      ready.value = true
+      void applySettingsUpdate(event.payload)
     })
   })
 
