@@ -8,6 +8,9 @@ import {
 } from '@/types/settings'
 import { WINDOW_EVENTS } from '@/types/window'
 
+const LOAD_SETTINGS_TIMEOUT_MS = 800
+const LOAD_SETTINGS_RETRY_DELAYS = [0, 300, 900, 1800] as const
+
 export function useAppSettings() {
   const settings = ref<AppSettings>({ ...DEFAULT_APP_SETTINGS })
   const ready = ref(false)
@@ -18,26 +21,51 @@ export function useAppSettings() {
     replaceInstalledPetRoles(installedRoles)
   }
 
-  async function loadSettings() {
-    const [loadedSettings] = await Promise.all([
+  function handleInstalledRolesError(message: string, error: unknown) {
+    console.error(message, error)
+    replaceInstalledPetRoles([])
+  }
+
+  async function invokeSettingsWithTimeout() {
+    return await Promise.race([
       invoke<AppSettings>('load_app_settings'),
-      refreshInstalledRoles(),
+      new Promise<AppSettings>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('读取设置超时'))
+        }, LOAD_SETTINGS_TIMEOUT_MS)
+      }),
     ])
-    settings.value = loadedSettings
-    ready.value = true
-    return settings.value
+  }
+
+  async function loadSettings() {
+    let lastError: unknown = null
+    for (const delay of LOAD_SETTINGS_RETRY_DELAYS) {
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+      try {
+        const loadedSettings = await invokeSettingsWithTimeout()
+        settings.value = loadedSettings
+        ready.value = true
+        void refreshInstalledRoles().catch((error: unknown) => {
+          handleInstalledRolesError('读取自定义角色失败，已回退为内置角色列表:', error)
+        })
+        return settings.value
+      } catch (error: unknown) {
+        lastError = error
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('读取设置失败')
   }
 
   async function applySettingsUpdate(updated: AppSettings) {
-    if (updated.pet_role !== settings.value.pet_role) {
-      try {
-        await refreshInstalledRoles()
-      } catch (error) {
-        console.error('同步自定义角色失败:', error)
-      }
-    }
+    const roleChanged = updated.pet_role !== settings.value.pet_role
     settings.value = updated
     ready.value = true
+    if (!roleChanged) return
+    void refreshInstalledRoles().catch((error: unknown) => {
+      handleInstalledRolesError('同步自定义角色失败:', error)
+    })
   }
 
   onMounted(async () => {

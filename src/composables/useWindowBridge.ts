@@ -42,6 +42,7 @@ export async function broadcastPetContext(context: PetContext) {
 
 export function usePetContextReceiver(recipient: PetContextRecipient) {
   const context = ref<PetContext>({ ...INITIAL_CONTEXT })
+  const ready = ref(false)
   let unlisten: UnlistenFn | null = null
   let startPromise: Promise<void> | null = null
   let disposed = false
@@ -52,6 +53,7 @@ export function usePetContextReceiver(recipient: PetContextRecipient) {
     disposed = false
     startPromise = listen<PetContext>(WINDOW_EVENTS.petContext, (event) => {
       context.value = event.payload
+      ready.value = true
     }).then((nextUnlisten) => {
       startPromise = null
       if (disposed) {
@@ -79,7 +81,7 @@ export function usePetContextReceiver(recipient: PetContextRecipient) {
 
   onUnmounted(dispose)
 
-  return { context, start, dispose }
+  return { context, ready, start, dispose }
 }
 
 export function useSystemFeedbackPayloadReceiver() {

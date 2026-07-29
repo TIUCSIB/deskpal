@@ -1,17 +1,21 @@
 mod overlay;
+mod passthrough;
 mod placement;
 mod policy;
 mod state;
 
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 
-use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH};
+use crate::settings::{
+    AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH,
+};
 pub use overlay::{
     hide_chat_window, hide_context_menu, reposition_visible_overlays,
     request_info_window_visibility, show_chat_window, show_context_menu, show_info_window_now,
     sync_info_window_visibility, sync_overlay_visibility, sync_reminder_window_visibility,
     sync_system_feedback_window_visibility, toggle_chat_window,
 };
+pub use passthrough::forward_main_left_click;
 use placement::{current_work_area, reclamped_main_position, resize_plan, restored_main_position};
 pub use state::OverlayState;
 
@@ -131,6 +135,10 @@ pub fn apply_main_window_settings(app: &AppHandle, settings: &AppSettings) -> Re
     window
         .set_skip_taskbar(!settings.main_window_show_in_taskbar)
         .map_err(|error| error.to_string())?;
+    #[cfg(target_os = "windows")]
+    window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -147,21 +155,50 @@ pub fn reset_settings_window(app: &AppHandle) -> Result<(), String> {
     window.center().map_err(|error| error.to_string())
 }
 
-pub fn show_main_window(app: &AppHandle) -> Result<(), String> {
+fn present_main_window(app: &AppHandle, focus: bool) -> Result<(), String> {
     let window = app
         .get_webview_window(MAIN_WINDOW)
         .ok_or_else(|| "找不到桌宠窗口".to_string())?;
-    let saved_position = window.outer_position().ok();
-    restore_main_window_position(app, saved_position)?;
+    let _ = window.unminimize();
     window.show().map_err(|error| error.to_string())?;
     reposition_visible_overlays(app);
     sync_info_window_visibility(app)?;
     sync_reminder_window_visibility(app)?;
     sync_system_feedback_window_visibility(app)?;
-    window.set_focus().map_err(|error| error.to_string())
+    if focus {
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+pub fn show_startup_main_window(app: &AppHandle) -> Result<(), String> {
+    present_main_window(app, false)
+}
+
+pub fn show_main_window(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(MAIN_WINDOW)
+        .ok_or_else(|| "找不到桌宠窗口".to_string())?;
+    if window.is_visible().map_err(|error| error.to_string())? {
+        restore_main_window_position(app, window.outer_position().ok())?;
+    }
+    present_main_window(app, true)
+}
+
+pub fn refresh_main_window_presentation(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window(MAIN_WINDOW)
+        .ok_or_else(|| "找不到桌宠窗口".to_string())?;
+    let position = window.outer_position().map_err(|error| error.to_string())?;
+    let nudged = PhysicalPosition::new(position.x.saturating_add(1), position.y);
+    window.set_position(nudged).map_err(|error| error.to_string())?;
+    window.set_position(position).map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub fn show_settings_window(app: &AppHandle) -> Result<(), String> {
+    let _ = present_main_window(app, false);
     let window = app
         .get_webview_window(SETTINGS_WINDOW)
         .ok_or_else(|| "找不到设置窗口".to_string())?;

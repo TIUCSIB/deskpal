@@ -92,12 +92,14 @@ describe('useWindowBridge', () => {
     expect(mocks.emitTo).toHaveBeenCalledWith('main', WINDOW_EVENTS.petContextRequest, {
       recipient: 'info',
     })
+    expect(contextReceiver?.ready.value).toBe(false)
 
     const handler = mocks.handlers.get(WINDOW_EVENTS.petContext)
     handler?.({ payload: CONTEXT })
     await nextTick()
 
     expect(contextReceiver?.context.value).toEqual(CONTEXT)
+    expect(contextReceiver?.ready.value).toBe(true)
     wrapper.unmount()
   })
 

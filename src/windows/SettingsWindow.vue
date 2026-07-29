@@ -52,6 +52,7 @@ const {
   handleShortcutEnabledChange,
   handleAlwaysOnTopChange,
   handleTaskbarChange,
+  handleLeftClickPassthroughChange,
   handleLaunchAtStartupChange,
   handleShortcutDraftInput,
   applyShortcut,
@@ -131,6 +132,13 @@ function handleScaleValue(value: number[] | undefined) {
                 label="在任务栏显示"
                 :checked="settings.main_window_show_in_taskbar"
                 @update:checked="handleTaskbarChange"
+              />
+              <SettingsToggleRow
+                id="settings-left-click-passthrough"
+                label="左键透传"
+                description="开启后普通左键会点击到桌宠下方窗口，按住 Alt 再左键可拖动桌宠。"
+                :checked="settings.main_window_left_click_passthrough"
+                @update:checked="handleLeftClickPassthroughChange"
               />
             </SettingsSection>
           </div>

@@ -85,6 +85,7 @@ export interface AppSettings {
   launch_at_startup: boolean
   main_window_always_on_top: boolean
   main_window_show_in_taskbar: boolean
+  main_window_left_click_passthrough: boolean
   chat_shortcut: string
   reminders: Reminder[]
   quiet_hours: QuietHours
@@ -118,6 +119,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   launch_at_startup: false,
   main_window_always_on_top: true,
   main_window_show_in_taskbar: false,
+  main_window_left_click_passthrough: false,
   chat_shortcut: DEFAULT_CHAT_SHORTCUT,
   reminders: [],
   quiet_hours: { ...DEFAULT_QUIET_HOURS },

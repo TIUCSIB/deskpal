@@ -13,6 +13,7 @@ pub struct PortableSettings {
     pub info_mode: InfoMode,
     pub size_locked: bool,
     pub main_window_always_on_top: bool,
+    pub main_window_left_click_passthrough: bool,
     pub reminders: Vec<Reminder>,
     pub quiet_hours: QuietHours,
 }
@@ -35,6 +36,7 @@ impl PortableSettingsEnvelope {
                 info_mode: settings.info_mode,
                 size_locked: settings.size_locked,
                 main_window_always_on_top: settings.main_window_always_on_top,
+                main_window_left_click_passthrough: settings.main_window_left_click_passthrough,
                 reminders: settings.reminders.clone(),
                 quiet_hours: settings.quiet_hours.clone(),
             },
@@ -66,6 +68,7 @@ impl PortableSettingsEnvelope {
             launch_at_startup: current.launch_at_startup,
             main_window_always_on_top: self.settings.main_window_always_on_top,
             main_window_show_in_taskbar: current.main_window_show_in_taskbar,
+            main_window_left_click_passthrough: self.settings.main_window_left_click_passthrough,
             chat_shortcut: current.chat_shortcut.clone(),
             reminders: self.settings.reminders,
             quiet_hours: self.settings.quiet_hours,

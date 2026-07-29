@@ -20,18 +20,20 @@ import { broadcastPetContext, sendPetContext } from '@/composables/useWindowBrid
 import { DEFAULT_PET_SCALE } from '@/types/settings'
 import type { PetContext, PetContextRequest } from '@/types/window'
 import { WINDOW_EVENTS } from '@/types/window'
-
 const { info } = useSystemInfo()
 const { evaluate: evaluateSystemFeedback } = useSystemFeedback()
 const { mood, updateMood } = usePetState()
 const { settings, ready, loadSettings } = useAppSettings()
+const leftClickPassthrough = computed(() => settings.value.main_window_left_click_passthrough)
 const {
   handlePetPress,
   shouldActivate,
   tryTriggerClickFeedback,
   isDragging,
   dragDirection,
-} = usePetInteraction()
+} = usePetInteraction(Date.now, {
+  leftClickPassthrough: () => leftClickPassthrough.value,
+})
 const { interactionText, interactionLevel, record: recordInteraction, dispose: disposeInteraction } = usePetInteractionState()
 const {
   animationName,
@@ -48,25 +50,22 @@ const {
 } = usePetBehavior()
 const petRef = ref<InstanceType<typeof Pet> | null>(null)
 const sizeLocked = computed(() => settings.value.size_locked)
+const activeRoleId = computed(() => ready.value ? getPetRole(settings.value.pet_role).id : undefined)
 let unlistenScale: UnlistenFn | null = null
 let unlistenContextRequest: UnlistenFn | null = null
 let listenersDisposed = false
-let persistScaleTimer: ReturnType<typeof setTimeout> | null = null
-let pendingScale: number | null = null
 
-/** 获取当前宠物状态供浮窗渲染 */
 function currentPetContext(): PetContext {
   return {
     info: info.value,
     mood: mood.value,
     roleId: settings.value.pet_role,
-    scale: petRef.value?.sizeScale ?? 1,
+    scale: petRef.value?.sizeScale ?? settings.value.pet_scale,
     interactionText: interactionText.value,
     interactionLevel: interactionLevel.value,
   }
 }
 
-/** 广播当前宠物状态供浮窗渲染 */
 function broadcastCurrentContext() {
   return broadcastPetContext(currentPetContext())
 }
@@ -84,7 +83,7 @@ watch(
     }
     updateMood(value)
     setMood(mood.value)
-    void broadcastCurrentContext()
+    if (ready.value) void broadcastCurrentContext()
   },
   { immediate: true },
 )
@@ -98,7 +97,7 @@ watch(
 )
 
 watch(interactionText, () => {
-  void broadcastCurrentContext()
+  if (ready.value) void broadcastCurrentContext()
 })
 
 watch(
@@ -134,8 +133,9 @@ watch(
 )
 
 watch(
-  () => settings.value.pet_role,
+  () => activeRoleId.value,
   async (roleId) => {
+    if (!roleId) return
     const role = getPetRole(roleId)
     setRole(role.id, role.spritesheet.animations.map((animation) => animation.name))
     await nextTick()
@@ -148,11 +148,10 @@ watch(
   () => [
     petRef.value?.frameWidth ?? 0,
     petRef.value?.frameHeight ?? 0,
-    petRef.value?.sizeScale ?? 1,
-    settings.value.pet_role,
+    petRef.value?.sizeScale ?? settings.value.pet_scale,
     ready.value,
   ] as const,
-  async ([width, height, scale, _role, isReady]) => {
+  async ([width, height, scale, isReady]) => {
     if (!isReady || !width || !height) return
     try {
       await invoke('resize_main_window', {
@@ -169,6 +168,14 @@ watch(
 )
 
 async function handlePetActivate(event: MouseEvent) {
+  if (leftClickPassthrough.value && !event.altKey) {
+    try {
+      await invoke('forward_main_left_click')
+    } catch (error) {
+      console.error('透传左键点击失败:', error)
+    }
+    return
+  }
   if (!shouldActivate(event)) return
   if (tryTriggerClickFeedback()) {
     triggerClickFeedback()
@@ -182,17 +189,9 @@ async function handlePetActivate(event: MouseEvent) {
 }
 
 function persistPetScale(scale: number) {
-  pendingScale = scale
-  if (persistScaleTimer) clearTimeout(persistScaleTimer)
-  persistScaleTimer = setTimeout(() => {
-    const value = pendingScale
-    pendingScale = null
-    persistScaleTimer = null
-    if (value === null) return
-    void invoke('save_pet_scale', { scale: value }).catch((error: unknown) => {
-      console.error('保存桌宠缩放失败:', error)
-    })
-  }, 120)
+  void invoke('save_pet_scale', { scale }).catch((error: unknown) => {
+    console.error('保存桌宠缩放失败:', error)
+  })
 }
 
 async function handlePetHover(hovering: boolean) {
@@ -200,7 +199,7 @@ async function handlePetHover(hovering: boolean) {
   setHovering(hovering)
   try {
     await invoke('set_info_window_visible', { visible: hovering && !isDragging.value })
-    if (hovering) await broadcastCurrentContext()
+    if (hovering && ready.value) await broadcastCurrentContext()
   } catch (error) {
     console.error('切换系统信息窗口失败:', error)
   }
@@ -230,6 +229,7 @@ onMounted(async () => {
   listenersDisposed = false
   const [nextUnlistenContextRequest, nextUnlistenScale] = await Promise.all([
     listen<PetContextRequest>(WINDOW_EVENTS.petContextRequest, (event) => {
+      if (!ready.value) return
       void sendPetContext(event.payload.recipient, currentPetContext()).catch((error: unknown) => {
         console.error('回复浮窗状态请求失败:', error)
       })
@@ -249,15 +249,21 @@ onMounted(async () => {
   const loaded = await loadSettings()
   await nextTick()
   petRef.value?.setSizeScale(loaded.pet_scale)
+  await nextTick()
   setMood(mood.value)
   start()
+  try {
+    await invoke('show_startup_main_window')
+    await invoke('refresh_main_window_presentation')
+  } catch (error: unknown) {
+    console.error('刷新桌宠窗口呈现状态失败:', error)
+  }
 })
 
 onUnmounted(() => {
   listenersDisposed = true
   unlistenContextRequest?.()
   unlistenScale?.()
-  if (persistScaleTimer) clearTimeout(persistScaleTimer)
   disposeInteraction()
   dispose()
 })
@@ -266,11 +272,14 @@ onUnmounted(() => {
 <template>
   <main class="pet-window">
     <Pet
+      v-if="ready"
       ref="petRef"
       :animation-name="animationName"
       :animation-revision="animationRevision"
-      :role-id="settings.pet_role"
+      :role-id="activeRoleId"
+      :scale="settings.pet_scale"
       :size-locked="sizeLocked"
+      :left-click-passthrough="leftClickPassthrough"
       @press="handlePetPress"
       @activate="handlePetActivate"
       @hover-change="handlePetHover"

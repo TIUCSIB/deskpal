@@ -115,4 +115,27 @@ describe('useAppSettings', () => {
     expect(appSettings?.settings.value.info_mode).toBe('always')
     wrapper.unmount()
   })
+
+  it('still becomes ready when loading installed roles fails', async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'load_app_settings') {
+        return { ...DEFAULT_APP_SETTINGS, pet_role: 'monthly-salary-cat' }
+      }
+      if (command === 'list_installed_role_packs') {
+        throw new Error('registry failed')
+      }
+      return { ...DEFAULT_APP_SETTINGS }
+    })
+    const wrapper = mount(Host)
+    await flushListeners()
+
+    const loaded = await appSettings?.loadSettings()
+    await flushListeners()
+
+    expect(loaded?.pet_role).toBe('monthly-salary-cat')
+    expect(appSettings?.ready.value).toBe(true)
+    expect(appSettings?.settings.value.pet_role).toBe('monthly-salary-cat')
+    expect(getPetRole('tiny-crt').id).toBe('guga')
+    wrapper.unmount()
+  })
 })

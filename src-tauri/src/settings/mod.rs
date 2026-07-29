@@ -1,5 +1,6 @@
 mod normalize;
 mod state;
+mod state_support;
 mod transfer;
 
 pub use state::SettingsState;
@@ -144,6 +145,8 @@ pub struct AppSettings {
     pub main_window_always_on_top: bool,
     #[serde(default)]
     pub main_window_show_in_taskbar: bool,
+    #[serde(default)]
+    pub main_window_left_click_passthrough: bool,
     #[serde(default = "default_chat_shortcut")]
     pub chat_shortcut: String,
     #[serde(default)]
@@ -166,6 +169,7 @@ impl Default for AppSettings {
             launch_at_startup: false,
             main_window_always_on_top: true,
             main_window_show_in_taskbar: false,
+            main_window_left_click_passthrough: false,
             chat_shortcut: default_chat_shortcut(),
             reminders: Vec::new(),
             quiet_hours: QuietHours::default(),
@@ -269,3 +273,5 @@ pub(crate) fn normalize_quiet_hours(mut hours: QuietHours) -> QuietHours {
 mod tests;
 #[cfg(test)]
 mod tests_crud;
+#[cfg(test)]
+mod tests_geometry;

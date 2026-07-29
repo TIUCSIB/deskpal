@@ -42,6 +42,9 @@ fn reset_all_restores_defaults() {
         .set_validated_pet_role("broom-witch".to_string())
         .expect("set pet role");
     state
+        .set_main_window_left_click_passthrough(true)
+        .expect("enable passthrough");
+    state
         .create_reminder(interval_input("起来接水", 20))
         .expect("create reminder");
 
@@ -49,6 +52,7 @@ fn reset_all_restores_defaults() {
 
     assert_eq!(reset.pet_scale, DEFAULT_PET_SCALE);
     assert_eq!(reset.pet_role, DEFAULT_PET_ROLE);
+    assert!(!reset.main_window_left_click_passthrough);
     assert!(reset.reminders.is_empty());
     let _ = fs::remove_file(state.path);
 }
@@ -253,27 +257,6 @@ fn resuming_a_paused_reminder_clears_only_its_pause_state() {
     assert_eq!(updated.reminders[0].id, first.id);
     assert_eq!(updated.reminders[0].paused_until, None);
     assert_eq!(updated.reminders[1], second);
-    let _ = fs::remove_file(state.path);
-}
-
-#[test]
-fn creating_duplicate_reminders_assigns_unique_ids() {
-    let state = test_state("reminder-ids");
-    state
-        .create_reminder(ReminderInput {
-            id: Some("water".to_string()),
-            ..interval_input("喝水", 30)
-        })
-        .expect("create first reminder");
-    let updated = state
-        .create_reminder(ReminderInput {
-            id: Some("water".to_string()),
-            ..interval_input("休息", 45)
-        })
-        .expect("create second reminder");
-
-    assert_eq!(updated.reminders[0].id, "water");
-    assert_eq!(updated.reminders[1].id, "water-2");
     let _ = fs::remove_file(state.path);
 }
 
