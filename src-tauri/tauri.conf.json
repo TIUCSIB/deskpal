@@ -128,8 +128,7 @@
     "active": true,
     "targets": "all",
     "resources": {
-      "icons/tray.ico": "icons/tray.ico",
-      "target/release/WebView2Loader.dll": "WebView2Loader.dll"
+      "icons/tray.ico": "icons/tray.ico"
     },
     "windows": {
       "nsis": {
