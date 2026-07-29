@@ -6,9 +6,7 @@ mod state;
 
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 
-use crate::settings::{
-    AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH,
-};
+use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH};
 pub use overlay::{
     hide_chat_window, hide_context_menu, reposition_visible_overlays,
     request_info_window_visibility, show_chat_window, show_context_menu, show_info_window_now,
@@ -191,8 +189,12 @@ pub fn refresh_main_window_presentation(app: &AppHandle) -> Result<(), String> {
         .ok_or_else(|| "找不到桌宠窗口".to_string())?;
     let position = window.outer_position().map_err(|error| error.to_string())?;
     let nudged = PhysicalPosition::new(position.x.saturating_add(1), position.y);
-    window.set_position(nudged).map_err(|error| error.to_string())?;
-    window.set_position(position).map_err(|error| error.to_string())?;
+    window
+        .set_position(nudged)
+        .map_err(|error| error.to_string())?;
+    window
+        .set_position(position)
+        .map_err(|error| error.to_string())?;
     window.show().map_err(|error| error.to_string())?;
     Ok(())
 }
