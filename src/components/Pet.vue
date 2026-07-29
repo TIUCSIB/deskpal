@@ -14,11 +14,15 @@ const props = withDefaults(
     animationName: string
     animationRevision?: number
     roleId?: PetRoleId
+    scale?: number
     sizeLocked?: boolean
+    leftClickPassthrough?: boolean
   }>(),
   {
     roleId: DEFAULT_PET_ROLE,
+    scale: 1,
     sizeLocked: false,
+    leftClickPassthrough: false,
   },
 )
 
@@ -51,9 +55,17 @@ const { hitTest } = usePixelHitTest(
 let hoveringPetPixel = false
 
 watch(
-  () => [props.animationName, props.animationRevision] as const,
-  ([animationName]) => {
+  () => props.animationName,
+  (animationName) => {
     playNamedAnimation(animationName)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.scale,
+  (scale) => {
+    setSizeScale(scale)
   },
   { immediate: true },
 )
@@ -81,6 +93,7 @@ function handleClick(event: MouseEvent) {
 
 function handleDoubleClick(event: MouseEvent) {
   if (props.sizeLocked || event.button !== 0 || !isPetPixel(event)) return
+  if (props.leftClickPassthrough && !event.altKey) return
   emit('restoreDefaultSize')
 }
 

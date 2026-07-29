@@ -173,6 +173,11 @@ export function useSettingsWindow() {
     setFeedback(enabled ? '桌宠已显示在任务栏' : '桌宠已从任务栏隐藏')
   }
 
+  async function handleLeftClickPassthroughChange(enabled: boolean) {
+    await invokeSetting('set_main_window_left_click_passthrough', { enabled })
+    setFeedback(enabled ? '已开启左键透传' : '已关闭左键透传')
+  }
+
   async function handleLaunchAtStartupChange(enabled: boolean) {
     await invokeSetting('set_launch_at_startup', { enabled })
     setFeedback(enabled ? '已开启开机自动启动' : '已关闭开机自动启动')
@@ -270,6 +275,7 @@ export function useSettingsWindow() {
     handleShortcutEnabledChange,
     handleAlwaysOnTopChange,
     handleTaskbarChange,
+    handleLeftClickPassthroughChange,
     handleLaunchAtStartupChange,
     handleShortcutDraftInput,
     applyShortcut,

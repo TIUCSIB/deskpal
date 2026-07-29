@@ -109,6 +109,9 @@ pub fn run() {
             system_info::get_system_info,
             window::resize_main_window,
             window::resize_info_window,
+            window::show_main_window,
+            window::show_startup_main_window,
+            window::refresh_main_window_presentation,
             window::toggle_chat_window,
             window::show_chat_window,
             window::hide_chat_window,
@@ -127,6 +130,7 @@ pub fn run() {
             window::pause_reminder_until_tomorrow,
             window::preview_reminder_window,
             window::set_info_window_visible,
+            window::forward_main_left_click,
             window::show_main_context_menu,
             window::hide_main_context_menu,
             window::show_main_context_status,
@@ -155,6 +159,7 @@ pub fn run() {
             settings_commands::set_launch_at_startup,
             settings_commands::set_main_window_always_on_top,
             settings_commands::set_main_window_show_in_taskbar,
+            settings_commands::set_main_window_left_click_passthrough,
             settings_commands::set_reminder_quiet_hours,
             settings_commands::create_reminder,
             settings_commands::update_reminder,
@@ -256,6 +261,27 @@ pub fn run() {
                                     let _ = settings.save_main_position_throttled(position.into());
                                 }
                             }
+                        }
+                    }
+                    if matches!(
+                        event,
+                        WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed
+                    ) {
+                        if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
+                            let _ = settings.flush_pending_geometry();
+                        }
+                    }
+                });
+            }
+            if let Some(settings_window) = app.get_webview_window(windowing::SETTINGS_WINDOW) {
+                let app_handle = app.handle().clone();
+                settings_window.on_window_event(move |event| {
+                    if matches!(
+                        event,
+                        WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed
+                    ) {
+                        if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
+                            let _ = settings.flush_pending_geometry();
                         }
                     }
                 });

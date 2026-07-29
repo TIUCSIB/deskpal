@@ -17,6 +17,21 @@ pub fn resize_info_window(app: AppHandle, scale: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn show_main_window(app: AppHandle) -> Result<(), String> {
+    windowing::show_main_window(&app)
+}
+
+#[tauri::command]
+pub fn show_startup_main_window(app: AppHandle) -> Result<(), String> {
+    windowing::show_startup_main_window(&app)
+}
+
+#[tauri::command]
+pub fn refresh_main_window_presentation(app: AppHandle) -> Result<(), String> {
+    windowing::refresh_main_window_presentation(&app)
+}
+
+#[tauri::command]
 pub fn toggle_chat_window(app: AppHandle) -> Result<(), String> {
     windowing::toggle_chat_window(&app)
 }
@@ -117,6 +132,11 @@ pub fn set_info_window_visible(app: AppHandle, visible: bool) -> Result<(), Stri
 }
 
 #[tauri::command]
+pub fn forward_main_left_click(app: AppHandle) -> Result<(), String> {
+    windowing::forward_main_left_click(&app)
+}
+
+#[tauri::command]
 pub fn show_main_context_menu(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     windowing::show_context_menu(&app, x, y)
 }
@@ -188,5 +208,8 @@ pub fn show_main_reminder_settings(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn exit_application(app: AppHandle) {
+    if let Some(settings) = app.try_state::<crate::settings::SettingsState>() {
+        let _ = settings.flush_pending_geometry();
+    }
     app.exit(0)
 }

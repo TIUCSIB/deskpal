@@ -9,16 +9,17 @@ use crate::{
     sync_autostart, sync_chat_shortcut, windowing,
 };
 
-const SETTINGS_UPDATED_EVENT: &str = "pet://settings-updated";
+pub(crate) const SETTINGS_UPDATED_EVENT: &str = "pet://settings-updated";
 
-pub(super) fn emit_settings(app: &AppHandle, settings: &AppSettings) {
+pub(crate) fn emit_settings(app: &AppHandle, settings: &AppSettings) {
     if let Err(error) = app.emit(SETTINGS_UPDATED_EVENT, settings) {
         eprintln!("无法同步应用设置事件: {error}");
     }
 }
 
-pub(super) fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
+pub(crate) fn finish_update(app: &AppHandle, settings: AppSettings) -> Result<AppSettings, String> {
     reminder::sync_from_settings(app)?;
+    crate::tray::sync_tray(app)?;
     emit_settings(app, &settings);
     Ok(settings)
 }
@@ -149,6 +150,17 @@ pub fn set_main_window_show_in_taskbar(
     enabled: bool,
 ) -> Result<AppSettings, String> {
     let updated = settings.set_main_window_show_in_taskbar(enabled)?;
+    windowing::apply_main_window_settings(&app, &updated)?;
+    finish_update(&app, updated)
+}
+
+#[tauri::command]
+pub fn set_main_window_left_click_passthrough(
+    app: AppHandle,
+    settings: State<'_, SettingsState>,
+    enabled: bool,
+) -> Result<AppSettings, String> {
+    let updated = settings.set_main_window_left_click_passthrough(enabled)?;
     windowing::apply_main_window_settings(&app, &updated)?;
     finish_update(&app, updated)
 }

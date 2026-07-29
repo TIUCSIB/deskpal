@@ -11,7 +11,14 @@ const CLICK_FEEDBACK_COOLDOWN_MS = 1500
 
 export type DragDirection = 'left' | 'right'
 
-export function usePetInteraction(now: () => number = Date.now) {
+interface UsePetInteractionOptions {
+  leftClickPassthrough?: () => boolean
+}
+
+export function usePetInteraction(
+  now: () => number = Date.now,
+  options: UsePetInteractionOptions = {},
+) {
   const isDragging = ref(false)
   const dragDirection = ref<DragDirection | null>(null)
   let dragStartX = 0
@@ -28,8 +35,12 @@ export function usePetInteraction(now: () => number = Date.now) {
     return dx >= DRAG_THRESHOLD || dy >= DRAG_THRESHOLD
   }
 
+  function allowLeftClickDrag(event: MouseEvent): boolean {
+    return !options.leftClickPassthrough?.() || event.altKey
+  }
+
   function handlePetPress(event: MouseEvent) {
-    if (event.button !== 0) return
+    if (event.button !== 0 || !allowLeftClickDrag(event)) return
     dragStartX = event.screenX
     dragStartY = event.screenY
     mouseDownOnPet = true
@@ -37,7 +48,8 @@ export function usePetInteraction(now: () => number = Date.now) {
   }
 
   function shouldActivate(event: MouseEvent): boolean {
-    const shouldSuppress = suppressNextClick || exceedsThreshold(event)
+    const passthroughEnabled = options.leftClickPassthrough?.() ?? false
+    const shouldSuppress = passthroughEnabled || suppressNextClick || exceedsThreshold(event)
     mouseDownOnPet = false
     suppressNextClick = false
     return !shouldSuppress

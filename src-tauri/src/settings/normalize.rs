@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::state::{LegacyReminderSettings, StoredSettings};
+use super::state_support::{LegacyReminderSettings, StoredSettings};
 use super::{
     default_reminder_message, normalize_pause, normalize_time, Reminder, ReminderRepeat,
     ReminderSchedule, SavedWindowBounds, MIN_SETTINGS_WINDOW_HEIGHT, MIN_SETTINGS_WINDOW_WIDTH,

@@ -32,6 +32,12 @@ fn quiet_hours_defaults_are_disabled_with_suggested_times() {
 }
 
 #[test]
+fn left_click_passthrough_defaults_to_disabled() {
+    let settings = AppSettings::default();
+    assert!(!settings.main_window_left_click_passthrough);
+}
+
+#[test]
 fn custom_weekdays_serialize_as_iso_days() {
     let schedule = ReminderSchedule::FixedTime {
         time: "09:00".to_string(),
