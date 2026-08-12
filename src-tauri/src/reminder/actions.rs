@@ -116,16 +116,20 @@ fn finish(
         if quiet_end.is_some() {
             log(app, ReminderEventKind::QuietDeferred, &active)?;
         }
-        if matches!(reminder.schedule, crate::settings::ReminderSchedule::Once { .. }) {
+        if matches!(
+            reminder.schedule,
+            crate::settings::ReminderSchedule::Once { .. }
+        ) {
             let snoozed_until = if snooze {
-                quiet_end.clone().unwrap_or_else(|| chrono::Local::now() + chrono::Duration::minutes(i64::from(reminder.snooze_minutes)))
+                quiet_end.clone().unwrap_or_else(|| {
+                    chrono::Local::now()
+                        + chrono::Duration::minutes(i64::from(reminder.snooze_minutes))
+                })
             } else {
                 chrono::Local::now()
             };
-            let updated = settings_state(app)?.finish_once_reminder(
-                &id,
-                snooze.then(|| snoozed_until.to_rfc3339()),
-            )?;
+            let updated = settings_state(app)?
+                .finish_once_reminder(&id, snooze.then(|| snoozed_until.to_rfc3339()))?;
             app.emit(SETTINGS_UPDATED_EVENT, &updated)
                 .map_err(|e| e.to_string())?;
         }
@@ -158,12 +162,28 @@ fn show_payload(app: &AppHandle, payload: ReminderPayload) -> Result<(), String>
     let shown = state(app)?.take_shown_event()?;
     if let Some(active) = shown.as_ref() {
         log(app, ReminderEventKind::Shown, active)?;
-        if matches!(get_settings(app)?.reminders.iter().find(|item| item.id == active.payload.reminder_id).map(|item| &item.schedule), Some(crate::settings::ReminderSchedule::Once { .. })) {
-            let updated = settings_state(app)?.mark_reminder_fired(&active.payload.reminder_id, chrono::Local::now().to_rfc3339())?;
-            app.emit(SETTINGS_UPDATED_EVENT, &updated).map_err(|e| e.to_string())?;
+        if matches!(
+            get_settings(app)?
+                .reminders
+                .iter()
+                .find(|item| item.id == active.payload.reminder_id)
+                .map(|item| &item.schedule),
+            Some(crate::settings::ReminderSchedule::Once { .. })
+        ) {
+            let updated = settings_state(app)?.mark_reminder_fired(
+                &active.payload.reminder_id,
+                chrono::Local::now().to_rfc3339(),
+            )?;
+            app.emit(SETTINGS_UPDATED_EVENT, &updated)
+                .map_err(|e| e.to_string())?;
         }
     }
-    if shown.is_some() || state(app)?.active()?.as_ref().is_some_and(|active| active.preview) {
+    if shown.is_some()
+        || state(app)?
+            .active()?
+            .as_ref()
+            .is_some_and(|active| active.preview)
+    {
         app.emit_to(windowing::REMINDER_WINDOW, REMINDER_TRIGGERED_EVENT, ())
             .map_err(|e| e.to_string())?;
     }

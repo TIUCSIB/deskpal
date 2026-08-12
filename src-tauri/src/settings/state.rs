@@ -186,7 +186,10 @@ impl SettingsState {
                 if matches!(r.schedule, super::ReminderSchedule::Once { .. }) {
                     r.snoozed_until = snoozed_until;
                     r.fired_at = None;
-                    r.completed_at = r.snoozed_until.is_none().then(|| chrono::Local::now().to_rfc3339());
+                    r.completed_at = r
+                        .snoozed_until
+                        .is_none()
+                        .then(|| chrono::Local::now().to_rfc3339());
                 }
             }
         })

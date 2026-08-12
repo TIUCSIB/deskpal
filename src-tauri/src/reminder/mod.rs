@@ -229,7 +229,10 @@ impl ReminderState {
                 })
             } else {
                 data.deferred_scheduled_at.remove(&reminder.id);
-                if matches!(reminder.schedule, crate::settings::ReminderSchedule::Once { .. }) {
+                if matches!(
+                    reminder.schedule,
+                    crate::settings::ReminderSchedule::Once { .. }
+                ) {
                     data.next_due_at.remove(&reminder.id);
                     data.active = data.queued.pop_front();
                     return Ok(data.active.as_ref().map(|item| item.payload.clone()));
