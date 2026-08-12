@@ -125,6 +125,9 @@ impl SettingsState {
                     schedule: input.schedule,
                     snooze_minutes: input.snooze_minutes,
                     paused_until: None,
+                    snoozed_until: None,
+                    fired_at: None,
+                    completed_at: None,
                 },
                 index,
             );
@@ -148,6 +151,42 @@ impl SettingsState {
                 r.enabled = enabled;
                 if !enabled {
                     r.paused_until = None;
+                }
+            }
+        })
+    }
+    pub fn expire_past_once_reminders(&self) -> Result<AppSettings, String> {
+        let now = chrono::Utc::now();
+        self.update(|s| {
+            for reminder in &mut s.reminders {
+                let is_past_once = matches!(&reminder.schedule, super::ReminderSchedule::Once { at } if chrono::DateTime::parse_from_rfc3339(at).is_ok_and(|at| at.with_timezone(&chrono::Utc) <= now));
+                if is_past_once && reminder.snoozed_until.is_none() && reminder.fired_at.is_none() && reminder.completed_at.is_none() {
+                    reminder.completed_at = Some(now.to_rfc3339());
+                }
+            }
+        })
+    }
+    pub fn mark_reminder_fired(&self, id: &str, fired_at: String) -> Result<AppSettings, String> {
+        self.update(|s| {
+            if let Some(r) = s.reminders.iter_mut().find(|r| r.id == id) {
+                if matches!(r.schedule, super::ReminderSchedule::Once { .. }) {
+                    r.fired_at = Some(fired_at);
+                    r.snoozed_until = None;
+                }
+            }
+        })
+    }
+    pub fn finish_once_reminder(
+        &self,
+        id: &str,
+        snoozed_until: Option<String>,
+    ) -> Result<AppSettings, String> {
+        self.update(|s| {
+            if let Some(r) = s.reminders.iter_mut().find(|r| r.id == id) {
+                if matches!(r.schedule, super::ReminderSchedule::Once { .. }) {
+                    r.snoozed_until = snoozed_until;
+                    r.fired_at = None;
+                    r.completed_at = r.snoozed_until.is_none().then(|| chrono::Local::now().to_rfc3339());
                 }
             }
         })

@@ -73,6 +73,9 @@ pub enum ReminderSchedule {
         #[serde(default)]
         repeat: ReminderRepeat,
     },
+    Once {
+        at: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -87,6 +90,12 @@ pub struct Reminder {
     pub snooze_minutes: u32,
     #[serde(default)]
     pub paused_until: Option<String>,
+    #[serde(default)]
+    pub snoozed_until: Option<String>,
+    #[serde(default)]
+    pub fired_at: Option<String>,
+    #[serde(default)]
+    pub completed_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

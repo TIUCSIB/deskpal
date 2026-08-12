@@ -229,6 +229,11 @@ impl ReminderState {
                 })
             } else {
                 data.deferred_scheduled_at.remove(&reminder.id);
+                if matches!(reminder.schedule, crate::settings::ReminderSchedule::Once { .. }) {
+                    data.next_due_at.remove(&reminder.id);
+                    data.active = data.queued.pop_front();
+                    return Ok(data.active.as_ref().map(|item| item.payload.clone()));
+                }
                 next_due(reminder, Local::now())?
             };
             data.next_due_at.insert(reminder.id.clone(), due);
@@ -266,7 +271,7 @@ impl ReminderState {
         let Some(active) = data.active.as_mut() else {
             return Ok(None);
         };
-        if active.preview || active.shown_logged {
+        if active.shown_logged {
             return Ok(None);
         }
         active.shown_logged = true;

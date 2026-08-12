@@ -92,7 +92,15 @@ fn normalize_schedule(schedule: ReminderSchedule) -> ReminderSchedule {
             time: normalize_time(time),
             repeat: normalize_repeat(repeat),
         },
+        ReminderSchedule::Once { at } => ReminderSchedule::Once {
+            at: normalize_once_at(&at),
+        },
     }
+}
+fn normalize_once_at(value: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map(|time| time.to_rfc3339())
+        .unwrap_or_else(|_| value.trim().to_string())
 }
 fn normalize_repeat(repeat: ReminderRepeat) -> ReminderRepeat {
     match repeat {
@@ -122,5 +130,8 @@ pub(crate) fn legacy_reminder(legacy: LegacyReminderSettings) -> Reminder {
         },
         snooze_minutes: legacy.snooze_minutes,
         paused_until: None,
+        snoozed_until: None,
+        fired_at: None,
+        completed_at: None,
     }
 }

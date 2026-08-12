@@ -23,6 +23,15 @@ pub(crate) fn next_due(
             Ok(now + Duration::minutes(i64::from((*interval_minutes).max(1))))
         }
         ReminderSchedule::FixedTime { time, repeat } => next_fixed_time(time, repeat, now),
+        ReminderSchedule::Once { at } => {
+            if let Some(snoozed_until) = reminder.snoozed_until.as_deref() {
+                return parse_datetime(snoozed_until);
+            }
+            if reminder.fired_at.is_some() || reminder.completed_at.is_some() {
+                return Ok(now + Duration::days(3650));
+            }
+            parse_datetime(at)
+        }
     }
 }
 pub(crate) fn quiet_end(
@@ -85,6 +94,11 @@ fn matches_repeat(repeat: &ReminderRepeat, weekday: Weekday) -> bool {
         ReminderRepeat::Weekdays => day <= 5,
         ReminderRepeat::CustomWeekdays { weekdays } => weekdays.contains(&day),
     }
+}
+fn parse_datetime(value: &str) -> Result<DateTime<Local>, String> {
+    DateTime::parse_from_rfc3339(value)
+        .map(|time| time.with_timezone(&Local))
+        .map_err(|_| "单次提醒时间格式无效".to_string())
 }
 fn parse_time(value: &str) -> Result<NaiveTime, String> {
     NaiveTime::parse_from_str(value, "%H:%M").map_err(|_| "安静时间格式无效".to_string())
@@ -175,5 +189,59 @@ mod tests {
             end.time(),
             NaiveTime::from_hms_opt(13, 0, 0).expect("valid time")
         );
+    }
+
+    #[test]
+    fn once_reminder_uses_snoozed_until_as_next_due() {
+        let now = Local
+            .with_ymd_and_hms(2026, 7, 27, 9, 0, 0)
+            .earliest()
+            .expect("local date");
+        let due = Local
+            .with_ymd_and_hms(2026, 7, 27, 10, 15, 0)
+            .earliest()
+            .expect("local due time");
+        let reminder = Reminder {
+            id: "once".into(),
+            enabled: true,
+            message: "单次提醒".into(),
+            schedule: ReminderSchedule::Once {
+                at: Local
+                    .with_ymd_and_hms(2026, 7, 27, 9, 30, 0)
+                    .earliest()
+                    .expect("local schedule time")
+                    .to_rfc3339(),
+            },
+            snooze_minutes: 5,
+            paused_until: None,
+            snoozed_until: Some(due.to_rfc3339()),
+            fired_at: None,
+            completed_at: None,
+        };
+
+        assert_eq!(next_due(&reminder, now).expect("next due"), due);
+    }
+
+    #[test]
+    fn completed_once_reminder_is_pushed_far_into_the_future() {
+        let now = Local
+            .with_ymd_and_hms(2026, 7, 27, 9, 0, 0)
+            .earliest()
+            .expect("local date");
+        let reminder = Reminder {
+            id: "once".into(),
+            enabled: true,
+            message: "单次提醒".into(),
+            schedule: ReminderSchedule::Once {
+                at: now.to_rfc3339(),
+            },
+            snooze_minutes: 5,
+            paused_until: None,
+            snoozed_until: None,
+            fired_at: None,
+            completed_at: Some(now.to_rfc3339()),
+        };
+
+        assert!(next_due(&reminder, now).expect("next due") > now + Duration::days(3000));
     }
 }

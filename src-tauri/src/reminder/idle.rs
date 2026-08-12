@@ -73,6 +73,9 @@ mod tests {
                     },
                     snooze_minutes: 5,
                     paused_until: None,
+                    snoozed_until: None,
+                    fired_at: None,
+                    completed_at: None,
                 },
                 Reminder {
                     id: "fixed".into(),
@@ -84,6 +87,9 @@ mod tests {
                     },
                     snooze_minutes: 5,
                     paused_until: None,
+                    snoozed_until: None,
+                    fired_at: None,
+                    completed_at: None,
                 },
             ],
             ..AppSettings::default()
