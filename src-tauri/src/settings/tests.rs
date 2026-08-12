@@ -77,6 +77,9 @@ fn custom_weekdays_are_canonicalized_before_persisting() {
             },
             snooze_minutes: 5,
             paused_until: None,
+            snoozed_until: None,
+            fired_at: None,
+            completed_at: None,
         },
         0,
     );
@@ -88,6 +91,27 @@ fn custom_weekdays_are_canonicalized_before_persisting() {
             repeat: ReminderRepeat::CustomWeekdays {
                 weekdays: vec![1, 3, 7],
             },
+        }
+    );
+}
+
+#[test]
+fn once_schedule_round_trips_rfc3339_time() {
+    let at = "2026-07-27T09:30:00+08:00";
+    let reminder: Reminder = serde_json::from_str(
+        &format!(
+            r#"{{
+                "id":"once", "enabled":true, "message":"单次提醒",
+                "schedule":{{"type":"once","at":"{at}"}}, "snooze_minutes":5
+            }}"#
+        ),
+    )
+    .expect("once reminder parses");
+
+    assert_eq!(
+        reminder.schedule,
+        ReminderSchedule::Once {
+            at: at.to_string(),
         }
     );
 }

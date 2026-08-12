@@ -33,6 +33,7 @@ const emit = defineEmits<{
   'update:draft-schedule-type': [ReminderDraft['scheduleType']]
   'update:draft-interval-minutes': [number]
   'update:draft-time': [string]
+  'update:draft-once-at': [string]
   'update:draft-repeat-type': [ReminderDraft['repeatType']]
   'toggle:weekday': [number]
   'update:draft-snooze-minutes': [number]
@@ -60,7 +61,7 @@ function confirmDelete() {
 <template>
   <SettingsSection title="提醒">
     <div class="flex items-center justify-between gap-3">
-      <p class="m-0 text-sm leading-5 text-muted-foreground">可添加间隔或固定时间提醒。</p>
+      <p class="m-0 text-sm leading-5 text-muted-foreground">可添加间隔、固定时间或单次提醒。</p>
       <Button size="sm" class="shrink-0 rounded-xl" :disabled="Boolean(props.draft)" @click="emit('create')">
         <PlusIcon class="size-3.5" aria-hidden="true" />
         添加提醒
@@ -77,6 +78,7 @@ function confirmDelete() {
       @update:schedule-type="emit('update:draft-schedule-type', $event)"
       @update:interval-minutes="emit('update:draft-interval-minutes', $event)"
       @update:time="emit('update:draft-time', $event)"
+      @update:once-at="emit('update:draft-once-at', $event)"
       @update:repeat-type="emit('update:draft-repeat-type', $event)"
       @toggle:weekday="emit('toggle:weekday', $event)"
       @update:snooze-minutes="emit('update:draft-snooze-minutes', $event)"

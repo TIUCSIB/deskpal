@@ -226,6 +226,9 @@ pub fn run() {
                 &app.handle(),
                 initial_settings.main_position.map(Into::into),
             )?;
+            app.try_state::<settings::SettingsState>()
+                .ok_or_else(|| "找不到应用设置状态".to_string())?
+                .expire_past_once_reminders()?;
             reminder::sync_from_settings(&app.handle())?;
             reminder::start_scheduler(app.handle().clone());
             windowing::sync_info_window_visibility(&app.handle())?;

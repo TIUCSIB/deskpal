@@ -11,6 +11,7 @@ export type FixedTimeRepeat =
 export type ReminderSchedule =
   | { type: 'interval'; interval_minutes: number }
   | { type: 'fixed_time'; time: string; repeat?: FixedTimeRepeat }
+  | { type: 'once'; at: string }
 
 export interface Reminder {
   id: string
@@ -19,6 +20,9 @@ export interface Reminder {
   schedule: ReminderSchedule
   snooze_minutes: number
   paused_until: string | null
+  snoozed_until?: string | null
+  fired_at?: string | null
+  completed_at?: string | null
 }
 
 export interface ReminderInput {

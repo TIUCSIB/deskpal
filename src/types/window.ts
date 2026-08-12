@@ -36,6 +36,7 @@ export const WINDOW_EVENTS = {
   focusContextMenu: 'context-menu://focus',
   focusSettingsSection: 'settings://focus-section',
   reminderPayload: 'pet://reminder-payload',
+  reminderTriggered: 'pet://reminder-triggered',
   systemFeedbackPayload: 'pet://system-feedback-payload',
   overlayPresent: 'overlay://present',
 } as const

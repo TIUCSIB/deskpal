@@ -11,6 +11,7 @@ const reminder: Reminder = {
   schedule: { type: 'interval', interval_minutes: 30 },
   snooze_minutes: 5,
   paused_until: null,
+  completed_at: null,
 }
 
 function mountSection(overrides: Partial<InstanceType<typeof ReminderSettingsSection>['$props']> = {}) {
@@ -73,6 +74,7 @@ describe('ReminderSettingsSection', () => {
         scheduleType: 'interval',
         intervalMinutes: 30,
         time: '09:00',
+        onceAt: '2099-01-01T09:00',
         repeatType: 'daily',
         weekdays: [1, 2, 3, 4, 5],
         snoozeMinutes: 5,

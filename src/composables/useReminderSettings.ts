@@ -25,6 +25,7 @@ export interface ReminderDraft {
   scheduleType: ReminderSchedule['type']
   intervalMinutes: number
   time: string
+  onceAt: string
   repeatType: FixedTimeRepeat['type']
   weekdays: number[]
   snoozeMinutes: number
@@ -34,11 +35,16 @@ function normalizedRepeat(schedule: Extract<ReminderSchedule, { type: 'fixed_tim
   return schedule.repeat ?? { type: 'daily' }
 }
 
+function localDateTimeValue(value = new Date()) {
+  const offset = value.getTimezoneOffset() * 60_000
+  return new Date(value.getTime() - offset).toISOString().slice(0, 16)
+}
+
 function createDraft(reminder?: Reminder): ReminderDraft {
   if (!reminder) {
     return {
       id: null, message: DEFAULT_REMINDER_MESSAGE, scheduleType: 'interval', intervalMinutes: DEFAULT_REMINDER_INTERVAL_MINUTES,
-      time: '09:00', repeatType: 'daily', weekdays: [1, 2, 3, 4, 5], snoozeMinutes: DEFAULT_REMINDER_SNOOZE_MINUTES,
+      time: '09:00', onceAt: localDateTimeValue(new Date(Date.now() + 60 * 60_000)), repeatType: 'daily', weekdays: [1, 2, 3, 4, 5], snoozeMinutes: DEFAULT_REMINDER_SNOOZE_MINUTES,
     }
   }
   const repeat = reminder.schedule.type === 'fixed_time' ? normalizedRepeat(reminder.schedule) : { type: 'daily' } as const
@@ -48,6 +54,7 @@ function createDraft(reminder?: Reminder): ReminderDraft {
     scheduleType: reminder.schedule.type,
     intervalMinutes: reminder.schedule.type === 'interval' ? reminder.schedule.interval_minutes : DEFAULT_REMINDER_INTERVAL_MINUTES,
     time: reminder.schedule.type === 'fixed_time' ? reminder.schedule.time : '09:00',
+    onceAt: reminder.schedule.type === 'once' ? localDateTimeValue(new Date(reminder.schedule.at)) : localDateTimeValue(new Date(Date.now() + 60 * 60_000)),
     repeatType: repeat.type,
     weekdays: repeat.type === 'custom_weekdays' ? repeat.weekdays : [1, 2, 3, 4, 5],
     snoozeMinutes: reminder.snooze_minutes,
@@ -56,6 +63,7 @@ function createDraft(reminder?: Reminder): ReminderDraft {
 
 function createSchedule(value: ReminderDraft): ReminderSchedule {
   if (value.scheduleType === 'interval') return { type: 'interval', interval_minutes: value.intervalMinutes }
+  if (value.scheduleType === 'once') return { type: 'once', at: new Date(value.onceAt).toISOString() }
   const repeat: FixedTimeRepeat = value.repeatType === 'custom_weekdays'
     ? { type: 'custom_weekdays', weekdays: [...value.weekdays].sort() }
     : { type: value.repeatType }
@@ -101,12 +109,22 @@ export function useReminderSettings(
     const message = value.message.trim()
     if (!message) return toast.error('请输入提醒文案')
     if (value.scheduleType === 'fixed_time' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) return toast.error('请选择有效的固定提醒时间')
-    if (value.repeatType === 'custom_weekdays' && !value.weekdays.length) return toast.error('请至少选择一个提醒日')
+    if (value.scheduleType === 'once' && (!value.onceAt || Number.isNaN(new Date(value.onceAt).getTime()) || new Date(value.onceAt) <= new Date())) return toast.error('请选择未来的单次提醒时间')
+    if (value.scheduleType === 'fixed_time' && value.repeatType === 'custom_weekdays' && !value.weekdays.length) return toast.error('请至少选择一个提醒日')
     const input: ReminderInput = { message, schedule: createSchedule(value), snooze_minutes: value.snoozeMinutes }
     if (value.id) {
       const current = settings.value.reminders.find((reminder) => reminder.id === value.id)
       if (!current) return
-      await invokeSetting('update_reminder', { reminder: { ...current, ...input } })
+      await invokeSetting('update_reminder', {
+        reminder: {
+          ...current,
+          ...input,
+          paused_until: null,
+          snoozed_until: null,
+          fired_at: null,
+          completed_at: null,
+        },
+      })
       setFeedback('提醒已更新')
     } else {
       await invokeSetting('create_reminder', { input })
@@ -164,6 +182,10 @@ export function useReminderSettings(
 
   function formatSchedule(schedule: ReminderSchedule) {
     if (schedule.type === 'interval') return `每 ${schedule.interval_minutes} 分钟`
+    if (schedule.type === 'once') {
+      const at = new Date(schedule.at)
+      return Number.isNaN(at.getTime()) ? '单次提醒' : `单次 ${at.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    }
     const repeat = normalizedRepeat(schedule)
     if (repeat.type === 'daily') return `每天 ${schedule.time}`
     if (repeat.type === 'weekdays') return `工作日 ${schedule.time}`

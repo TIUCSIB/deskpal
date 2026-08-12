@@ -18,7 +18,7 @@ function createHarness() {
     if (input) {
       settings.value = {
         ...settings.value,
-        reminders: [...settings.value.reminders, { ...input, id: 'created', enabled: true, paused_until: null }],
+        reminders: [...settings.value.reminders, { ...input, id: 'created', enabled: true, paused_until: null, snoozed_until: null, fired_at: null, completed_at: null }],
       }
     }
     return settings.value
