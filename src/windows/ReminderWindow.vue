@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import ReminderBubble from '@/components/ReminderBubble.vue'
 import { useOverlayTransition } from '@/composables/useOverlayTransition'
+import { useReminderSound } from '@/composables/useReminderSound'
 import { useReminderWindow } from '@/composables/useReminderWindow'
 
 const {
@@ -15,6 +16,7 @@ const {
   pauseUntilTomorrow,
 } = useReminderWindow()
 const { revision, transitionStyle } = useOverlayTransition()
+useReminderSound()
 const animatedStyle = computed(() => transitionStyle.value)
 </script>
 

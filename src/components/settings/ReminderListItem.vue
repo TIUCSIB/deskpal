@@ -25,7 +25,8 @@ const emit = defineEmits<{
       <div class="min-w-0 grid gap-1">
         <strong class="truncate text-sm font-medium text-foreground">{{ props.reminder.message }}</strong>
         <span class="text-xs text-muted-foreground">{{ props.scheduleText }}</span>
-        <span v-if="props.pauseText" class="text-xs text-amber-600 dark:text-amber-400">
+        <span v-if="props.reminder.completed_at" class="text-xs text-muted-foreground">已完成</span>
+        <span v-else-if="props.pauseText" class="text-xs text-amber-600 dark:text-amber-400">
           {{ props.pauseText }}
         </span>
       </div>

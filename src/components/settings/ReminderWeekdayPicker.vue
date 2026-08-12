@@ -27,6 +27,6 @@ const DAYS = [
 
 <style scoped>
 .weekday-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.weekday-picker__day { height: 32px; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--background)); color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 12px; }
-.weekday-picker__day--selected { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.weekday-picker__day { height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--muted-foreground); cursor: pointer; font-size: 12px; }
+.weekday-picker__day--selected { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 </style>

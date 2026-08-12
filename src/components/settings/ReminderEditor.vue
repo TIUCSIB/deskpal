@@ -18,6 +18,7 @@ const emit = defineEmits<{
   'update:schedule-type': [ReminderDraft['scheduleType']]
   'update:interval-minutes': [number]
   'update:time': [string]
+  'update:once-at': [string]
   'update:repeat-type': [ReminderDraft['repeatType']]
   'toggle:weekday': [number]
   'update:snooze-minutes': [number]
@@ -29,6 +30,7 @@ const MESSAGE_ID = 'reminder-editor-message'
 const SCHEDULE_ID = 'reminder-editor-schedule'
 const INTERVAL_ID = 'reminder-editor-interval'
 const TIME_ID = 'reminder-editor-time'
+const ONCE_AT_ID = 'reminder-editor-once-at'
 const REPEAT_ID = 'reminder-editor-repeat'
 const SNOOZE_ID = 'reminder-editor-snooze'
 </script>
@@ -49,7 +51,7 @@ const SNOOZE_ID = 'reminder-editor-snooze'
       <Label :for="SCHEDULE_ID" class="text-sm text-foreground">提醒方式</Label>
       <Select :model-value="props.draft.scheduleType" @update:model-value="(value) => value && emit('update:schedule-type', value as ReminderDraft['scheduleType'])">
         <SelectTrigger :id="SCHEDULE_ID" class="h-10 rounded-xl bg-background/70"><SelectValue placeholder="请选择提醒方式" /></SelectTrigger>
-        <SelectContent><SelectItem value="interval">间隔提醒</SelectItem><SelectItem value="fixed_time">固定时间</SelectItem></SelectContent>
+        <SelectContent><SelectItem value="interval">间隔提醒</SelectItem><SelectItem value="fixed_time">固定时间</SelectItem><SelectItem value="once">单次提醒</SelectItem></SelectContent>
       </Select>
     </div>
 
@@ -61,7 +63,7 @@ const SNOOZE_ID = 'reminder-editor-snooze'
       </Select>
     </div>
 
-    <template v-else>
+    <template v-else-if="props.draft.scheduleType === 'fixed_time'">
       <div class="grid gap-2">
         <Label :for="TIME_ID" class="text-sm text-foreground">提醒时间</Label>
         <Input :id="TIME_ID" type="time" :model-value="props.draft.time" class="h-10 rounded-xl bg-background/70" @update:model-value="emit('update:time', String($event))" />
@@ -75,6 +77,11 @@ const SNOOZE_ID = 'reminder-editor-snooze'
       </div>
       <ReminderWeekdayPicker v-if="props.draft.repeatType === 'custom_weekdays'" :model-value="props.draft.weekdays" @toggle="emit('toggle:weekday', $event)" />
     </template>
+
+    <div v-else class="grid gap-2">
+      <Label :for="ONCE_AT_ID" class="text-sm text-foreground">提醒日期和时间</Label>
+      <Input :id="ONCE_AT_ID" type="datetime-local" :model-value="props.draft.onceAt" class="h-10 rounded-xl bg-background/70" @update:model-value="emit('update:once-at', String($event))" />
+    </div>
 
     <div class="grid gap-2">
       <Label :for="SNOOZE_ID" class="text-sm text-foreground">稍后提醒时长</Label>

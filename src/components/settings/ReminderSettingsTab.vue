@@ -43,6 +43,7 @@ const {
         @update:draft-schedule-type="updateDraft('scheduleType', $event)"
         @update:draft-interval-minutes="updateDraft('intervalMinutes', $event)"
         @update:draft-time="updateDraft('time', $event)"
+        @update:draft-once-at="updateDraft('onceAt', $event)"
         @update:draft-repeat-type="updateDraft('repeatType', $event)"
         @toggle:weekday="toggleWeekday"
         @update:draft-snooze-minutes="updateDraft('snoozeMinutes', $event)"
