@@ -153,6 +153,18 @@ pub fn reset_settings_window(app: &AppHandle) -> Result<(), String> {
     window.center().map_err(|error| error.to_string())
 }
 
+pub(super) fn refresh_window_presentation(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let position = window.outer_position().map_err(|error| error.to_string())?;
+    let nudged = PhysicalPosition::new(position.x.saturating_add(1), position.y);
+    window
+        .set_position(nudged)
+        .map_err(|error| error.to_string())?;
+    window
+        .set_position(position)
+        .map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())
+}
+
 fn present_main_window(app: &AppHandle, focus: bool) -> Result<(), String> {
     let window = app
         .get_webview_window(MAIN_WINDOW)
@@ -187,16 +199,7 @@ pub fn refresh_main_window_presentation(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window(MAIN_WINDOW)
         .ok_or_else(|| "找不到桌宠窗口".to_string())?;
-    let position = window.outer_position().map_err(|error| error.to_string())?;
-    let nudged = PhysicalPosition::new(position.x.saturating_add(1), position.y);
-    window
-        .set_position(nudged)
-        .map_err(|error| error.to_string())?;
-    window
-        .set_position(position)
-        .map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())?;
-    Ok(())
+    refresh_window_presentation(&window)
 }
 
 pub fn show_settings_window(app: &AppHandle) -> Result<(), String> {

@@ -54,6 +54,8 @@ const { hitTest } = usePixelHitTest(
 )
 let hoveringPetPixel = false
 
+type PointerLikeEvent = MouseEvent | PointerEvent | WheelEvent
+
 watch(
   () => props.animationName,
   (animationName) => {
@@ -71,18 +73,27 @@ watch(
 )
 
 /** 获取鼠标相对于精灵容器的坐标 */
-function getRelativePosition(event: MouseEvent): { x: number; y: number } {
+function getRelativePosition(event: PointerLikeEvent): { x: number; y: number } {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   return { x: event.clientX - rect.left, y: event.clientY - rect.top }
 }
 
 /** 判断事件是否命中角色非透明像素 */
-function isPetPixel(event: MouseEvent): boolean {
+function isPetPixel(event: PointerLikeEvent): boolean {
   const { x, y } = getRelativePosition(event)
   return hitTest(x, y)
 }
 
+/** 同步当前 hover 状态，避免只依赖鼠标移动事件 */
+function syncHoverState(event: PointerLikeEvent) {
+  const hovering = isPetPixel(event)
+  if (hovering === hoveringPetPixel) return
+  hoveringPetPixel = hovering
+  emit('hoverChange', hovering)
+}
+
 function handleMouseDown(event: MouseEvent) {
+  syncHoverState(event)
   if (event.button === 0 && isPetPixel(event)) emit('press', event)
 }
 
@@ -102,11 +113,16 @@ function handleContextMenu(event: MouseEvent) {
   if (isPetPixel(event)) emit('contextMenu', event)
 }
 
+function handlePointerEnter(event: PointerEvent) {
+  syncHoverState(event)
+}
+
+function handlePointerMove(event: PointerEvent) {
+  syncHoverState(event)
+}
+
 function handleMouseMove(event: MouseEvent) {
-  const hovering = isPetPixel(event)
-  if (hovering === hoveringPetPixel) return
-  hoveringPetPixel = hovering
-  emit('hoverChange', hovering)
+  syncHoverState(event)
 }
 
 function handleMouseLeave() {
@@ -135,6 +151,8 @@ defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight, playNamedAnimat
     class="pet"
     :style="{ width: frameWidth + 'px', height: frameHeight + 'px' }"
     @wheel="handleWheel"
+    @pointerenter="handlePointerEnter"
+    @pointermove="handlePointerMove"
     @mousedown="handleMouseDown"
     @click="handleClick"
     @dblclick="handleDoubleClick"

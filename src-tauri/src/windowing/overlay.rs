@@ -12,8 +12,8 @@ use super::{
         OverlayPlacement,
     },
     policy::{overlay_winner, OverlayWinner},
-    OverlayState, CHAT_WINDOW, CONTEXT_MENU_WINDOW, INFO_WINDOW, MAIN_WINDOW, REMINDER_WINDOW,
-    SYSTEM_FEEDBACK_WINDOW,
+    refresh_window_presentation, OverlayState, CHAT_WINDOW, CONTEXT_MENU_WINDOW, INFO_WINDOW,
+    MAIN_WINDOW, REMINDER_WINDOW, SYSTEM_FEEDBACK_WINDOW,
 };
 
 const OVERLAY_PRESENT_EVENT: &str = "overlay://present";
@@ -278,6 +278,9 @@ fn present_overlay(app: &AppHandle, label: &str) -> Result<(), String> {
         .ok_or_else(|| format!("找不到 {label} 窗口"))?;
     let was_visible = overlay.is_visible().map_err(|error| error.to_string())?;
     overlay.show().map_err(|error| error.to_string())?;
+    if label == INFO_WINDOW {
+        refresh_window_presentation(&overlay)?;
+    }
     if was_visible {
         return Ok(());
     }
