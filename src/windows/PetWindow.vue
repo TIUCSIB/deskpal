@@ -197,9 +197,11 @@ function persistPetScale(scale: number) {
 async function handlePetHover(hovering: boolean) {
   if (isDragging.value && hovering) return
   setHovering(hovering)
+  const visible = hovering && !isDragging.value
   try {
-    await invoke('set_info_window_visible', { visible: hovering && !isDragging.value })
-    if (hovering && ready.value) await broadcastCurrentContext()
+    await invoke('set_info_window_visible', { visible })
+    if (!visible) return
+    if (ready.value) await broadcastCurrentContext()
   } catch (error) {
     console.error('切换系统信息窗口失败:', error)
   }

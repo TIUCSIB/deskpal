@@ -41,11 +41,14 @@ const icon = computed(() => (props.payload.severity === 'warning' ? '!' : '✓')
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(60, 60, 67, 0.16);
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(28, 28, 30, 0.13);
 }
 
 .system-feedback-bubble--warning { border-color: rgba(255, 149, 0, 0.45); }
-.system-feedback-bubble--reminders_paused { box-shadow: none; }
+.system-feedback-bubble--network_restored,
+.system-feedback-bubble--idle_long,
+.system-feedback-bubble--reminders_paused {
+  border-color: transparent;
+}
 .system-feedback-bubble__icon {
   display: grid;
   width: 24px;
