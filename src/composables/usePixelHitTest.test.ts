@@ -107,7 +107,34 @@ describe('usePixelHitTest', () => {
     wrapper.unmount()
   })
 
-  it('falls back to container interaction when canvas pixel reads are blocked', async () => {
+  it('degrades to the last known result instead of marking everything as hit', async () => {
+    // 先成功读取到"非透明"，再让后续回读失败
+    getImageData.mockReturnValueOnce({ data: new Uint8ClampedArray([0, 0, 0, 255]) } as ImageData)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const wrapper = mount(Host)
+    await nextTick()
+
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+    expect(getImageData).toHaveBeenCalledTimes(1)
+
+    getImageData.mockImplementation(() => {
+      throw new DOMException('Canvas is tainted.', 'SecurityError')
+    })
+    // 换帧以清空 alpha 缓存，强制走真实回读路径
+    pixelHitTest?.setFrameKey('0px -100px')
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+    expect(warn).toHaveBeenCalledOnce()
+
+    // 降级期间沿用上次成功结果，而不是无条件返回 true。
+    // 由于重试间隔未到，不应再次尝试回读。
+    const attemptsAfterFailure = getImageData.mock.calls.length
+    expect(pixelHitTest?.hitTest(40, 50)).toBe(true)
+    expect(getImageData).toHaveBeenCalledTimes(attemptsAfterFailure)
+    wrapper.unmount()
+  })
+
+  it('treats unknown pixels as misses when the first read fails', async () => {
+    // 从未成功读取过：保守判为未命中，避免空白区域误触发浮窗
     getImageData.mockImplementation(() => {
       throw new DOMException('Canvas is tainted.', 'SecurityError')
     })
@@ -115,10 +142,29 @@ describe('usePixelHitTest', () => {
     const wrapper = mount(Host)
     await nextTick()
 
-    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
-    expect(pixelHitTest?.hitTest(40, 50)).toBe(true)
-    expect(getImageData).toHaveBeenCalledOnce()
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(false)
+    expect(pixelHitTest?.hitTest(40, 50)).toBe(false)
     expect(warn).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+
+  it('retries pixel reads after the retry interval elapses', async () => {
+    getImageData.mockImplementation(() => {
+      throw new DOMException('Canvas is tainted.', 'SecurityError')
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.useFakeTimers()
+    const wrapper = mount(Host)
+    await nextTick()
+
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(false)
+
+    // 超过重试间隔后应重新尝试，并在恢复成功后返回真实结果
+    vi.advanceTimersByTime(1500)
+    getImageData.mockReturnValue({ data: new Uint8ClampedArray([0, 0, 0, 255]) } as ImageData)
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+
+    vi.useRealTimers()
     wrapper.unmount()
   })
 })
