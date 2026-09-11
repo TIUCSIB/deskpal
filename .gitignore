@@ -36,3 +36,4 @@ src-tauri/gen/
 
 # Local agent workspace
 .zcode/
+.workbuddy/
