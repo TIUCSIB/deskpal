@@ -57,6 +57,16 @@ let unlistenContextRequest: UnlistenFn | null = null
 let unlistenOverlaySuppressed: UnlistenFn | null = null
 let listenersDisposed = false
 
+/**
+ * 最近一次已提交给原生层的信息窗可见性请求。
+ *
+ * 用于去重：悬停状态每变化一次都会走一遍 `invoke` + 原生侧重定位 + 置顶，
+ * 而快速划过宠物边缘时状态可能在极短时间内来回翻转，产生一串互相抵消的
+ * 跨进程调用与窗口显隐，表现为"闪一下又没了"。仅当目标状态与上次提交不同
+ * 时才真正发起请求。
+ */
+let lastRequestedInfoVisible: boolean | null = null
+
 function currentPetContext(): PetContext {
   return {
     info: info.value,
@@ -120,7 +130,9 @@ watch(
   isDragging,
   (dragging) => {
     if (dragging) {
+      lastRequestedInfoVisible = false
       void invoke('set_info_window_visible', { visible: false }).catch((error: unknown) => {
+        lastRequestedInfoVisible = null
         console.error('拖拽时隐藏系统信息窗口失败:', error)
       })
       return
@@ -222,6 +234,8 @@ async function handlePetHover(hovering: boolean) {
   // 动画保持期间（拖拽刚结束、落地动作仍在播放）不弹出信息窗，
   // 避免窗口刚从拖拽位移中稳定下来就被浮窗遮挡。
   const visible = hovering && !isDragAnimating.value
+  if (visible === lastRequestedInfoVisible) return
+  lastRequestedInfoVisible = visible
   try {
     await invoke('set_info_window_visible', { visible })
     if (!visible) return
@@ -229,6 +243,8 @@ async function handlePetHover(hovering: boolean) {
     // 避免信息窗显示后停留在初始空上下文。设置加载完成后还有后续广播兜底。
     await broadcastCurrentContext()
   } catch (error) {
+    // 提交失败时回退记录，使下一次相同请求能够重试
+    lastRequestedInfoVisible = null
     console.error('切换系统信息窗口失败:', error)
   }
 }
@@ -267,8 +283,11 @@ onMounted(async () => {
         petRef.value?.setSizeScale(event.payload)
       }),
       listen<string>(WINDOW_EVENTS.overlaySuppressed, () => {
-        // 原生层因互斥仲裁隐藏了浮窗，重置 hover 去重状态，
+        // 原生层因互斥仲裁隐藏了浮窗，重置 hover 去重状态与请求记录，
         // 使指针保持悬停时也能重新触发显示。
+        // `reevaluateHover` 内部会复用最近一次指针位置，因此无需新的
+        // pointermove 事件 —— 抢占往往发生在指针静止时（如刚右键唤出菜单）。
+        lastRequestedInfoVisible = null
         petRef.value?.reevaluateHover()
       }),
     ])

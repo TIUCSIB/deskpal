@@ -3,7 +3,7 @@
  * Pet.vue - 桌宠角色（精灵表动画）
  * 使用像素命中确保只有角色非透明区域响应交互。
  */
-import { computed, onUnmounted, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { DEFAULT_PET_ROLE, getPetRole } from '@/config/petRoles'
 import type { PetRoleId } from '@/types/pet'
 import { useSpriteAnimation } from '@/composables/useSpriteAnimation'
@@ -63,6 +63,8 @@ const { hitTest, setFrameKey } = usePixelHitTest(
 watch(backgroundPosition, (position) => setFrameKey(position), { immediate: true })
 
 let hoveringPetPixel = false
+/** 最近一次指针事件。用于抢占后无需等待新事件即可重评 hover。 */
+let lastPointerEvent: PointerEvent | null = null
 
 type PointerLikeEvent = MouseEvent | PointerEvent | WheelEvent
 
@@ -82,16 +84,23 @@ watch(
   { immediate: true },
 )
 
+/** 精灵容器元素引用。`currentTarget` 仅在事件派发期间有效，
+ *  抢占后的延迟重评需要独立持有容器引用才能换算相对坐标。 */
+const containerRef = ref<HTMLElement | null>(null)
+
 /** 获取鼠标相对于精灵容器的坐标 */
-function getRelativePosition(event: PointerLikeEvent): { x: number; y: number } {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+function getRelativePosition(event: PointerLikeEvent): { x: number; y: number } | null {
+  const container = containerRef.value ?? (event.currentTarget as HTMLElement | null)
+  if (!container) return null
+  const rect = container.getBoundingClientRect()
   return { x: event.clientX - rect.left, y: event.clientY - rect.top }
 }
 
 /** 判断事件是否命中角色非透明像素 */
 function isPetPixel(event: PointerLikeEvent): boolean {
-  const { x, y } = getRelativePosition(event)
-  return hitTest(x, y)
+  const position = getRelativePosition(event)
+  if (!position) return false
+  return hitTest(position.x, position.y)
 }
 
 /** 同步当前 hover 状态，避免只依赖鼠标移动事件 */
@@ -124,6 +133,7 @@ function handleContextMenu(event: MouseEvent) {
 }
 
 function handlePointerEnter(event: PointerEvent) {
+  lastPointerEvent = event
   pendingHoverEvent = event
   syncHoverState(event)
 }
@@ -137,8 +147,22 @@ let hoverRafId = 0
  * `pointermove` 在高刷新率设备上可达 120 Hz，而每次评测都要做像素级
  * 命中检测（同步 GPU→CPU 回读）。同一帧内指针的多次移动只需最后一次
  * 结果，故合并到 `requestAnimationFrame` 中执行一次。
+ *
+ * 首帧例外：若当前尚未处于悬停态，说明这是"移入"的第一步，延迟一帧会让
+ * 用户感到明显的反应迟滞。此时同步评测一次，后续移动再走节流路径。
  */
 function handlePointerMove(event: PointerEvent) {
+  lastPointerEvent = event
+  if (!hoveringPetPixel) {
+    // 移入路径：立即评测，消除入场延迟
+    if (hoverRafId) {
+      cancelAnimationFrame(hoverRafId)
+      hoverRafId = 0
+      pendingHoverEvent = null
+    }
+    syncHoverState(event)
+    return
+  }
   pendingHoverEvent = event
   if (hoverRafId) return
   hoverRafId = requestAnimationFrame(() => {
@@ -150,6 +174,7 @@ function handlePointerMove(event: PointerEvent) {
 }
 
 function handleMouseLeave() {
+  lastPointerEvent = null
   if (hoverRafId) {
     cancelAnimationFrame(hoverRafId)
     hoverRafId = 0
@@ -164,6 +189,7 @@ onUnmounted(() => {
   if (hoverRafId) cancelAnimationFrame(hoverRafId)
   hoverRafId = 0
   pendingHoverEvent = null
+  lastPointerEvent = null
 })
 
 /** 非透明像素上的滚轮缩放 */
@@ -186,8 +212,23 @@ function handleWheel(event: WheelEvent) {
  *
  * @param event 可选的指针事件；缺省时按"未命中"处理，避免残留 hover
  */
+/**
+ * 依据当前指针位置重新评测 hover。
+ *
+ * 用途：原生层可能因浮窗互斥仲裁主动隐藏了信息窗，但本组件的去重状态
+ * `hoveringPetPixel` 仍为 true，导致后续 pointermove 不再上报。该函数在
+ * 拖拽结束、浮窗被抢占等时机被调用，强制收敛状态。
+ *
+ * 关键点：抢占发生时指针通常**静止不动**（例如刚右键唤出菜单），若按
+ * "无参即判为未命中"处理，就必须等下一次真实 pointermove 才能恢复显示，
+ * 而 pointermove 还受 RAF 节流 —— 用户会感到"移回去也不出来"。
+ * 因此优先复用最近一次指针事件重评真实命中结果。
+ *
+ * @param event 可选的指针事件；缺省时回退到最近一次记录的指针位置
+ */
 function reevaluateHover(event?: PointerLikeEvent) {
-  const hovering = event ? isPetPixel(event) : false
+  const target = event ?? lastPointerEvent
+  const hovering = target ? isPetPixel(target) : false
   if (hovering === hoveringPetPixel) {
     // 状态未变，但原生层可能已隐藏浮窗，需强制重发一次以触发重新显示
     if (hovering) emit('hoverChange', true)
@@ -210,6 +251,7 @@ defineExpose({
 
 <template>
   <div
+    ref="containerRef"
     class="pet"
     :style="{ width: frameWidth + 'px', height: frameHeight + 'px' }"
     @wheel="handleWheel"
