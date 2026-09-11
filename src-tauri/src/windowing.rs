@@ -1,12 +1,15 @@
+mod guard;
 mod overlay;
 mod passthrough;
 mod placement;
 mod policy;
 mod state;
+mod zorder;
 
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 
 use crate::settings::{AppSettings, DEFAULT_SETTINGS_WINDOW_HEIGHT, DEFAULT_SETTINGS_WINDOW_WIDTH};
+pub(crate) use guard::start_overlay_guard;
 pub use overlay::{
     hide_chat_window, hide_context_menu, reposition_visible_overlays,
     request_info_window_visibility, show_chat_window, show_context_menu, show_info_window_now,
@@ -137,6 +140,8 @@ pub fn apply_main_window_settings(app: &AppHandle, settings: &AppSettings) -> Re
     window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
+    // 浮窗始终跟随桌宠置顶，避免设置变更后与主窗口层级脱节
+    reinforce_overlay_windows_topmost_enabled(app, settings.main_window_always_on_top);
     Ok(())
 }
 
@@ -153,16 +158,98 @@ pub fn reset_settings_window(app: &AppHandle) -> Result<(), String> {
     window.center().map_err(|error| error.to_string())
 }
 
+/** 全部浮窗标签 —— 需要保持置顶、但不参与互斥仲裁的窗口。 */
+pub const OVERLAY_WINDOW_LABELS: [&str; 5] = [
+    CONTEXT_MENU_WINDOW,
+    CHAT_WINDOW,
+    INFO_WINDOW,
+    REMINDER_WINDOW,
+    SYSTEM_FEEDBACK_WINDOW,
+];
+
+/**
+ * 刷新窗口呈现并重新置于顶层。
+ *
+ * 相比单纯的 `show()`，此函数会显式恢复 topmost 标记并重排 Z 序，
+ * 用于窗口创建、主窗口重新呈现以及系统级事件之后。
+ */
 pub(super) fn refresh_window_presentation(window: &tauri::WebviewWindow) -> Result<(), String> {
-    let position = window.outer_position().map_err(|error| error.to_string())?;
-    let nudged = PhysicalPosition::new(position.x.saturating_add(1), position.y);
-    window
-        .set_position(nudged)
-        .map_err(|error| error.to_string())?;
-    window
-        .set_position(position)
-        .map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())
+    window.show().map_err(|error| error.to_string())?;
+    zorder::ensure_on_top(window)
+}
+
+/**
+ * 为单个浮窗重新施加置顶状态（窗口显示或失去层级后调用）。
+ *
+ * 走不抖动的路径：本函数在每次浮窗显示时都会执行（悬停驱动，可达较高频率），
+ * 位置写入会带来无谓开销与 1 物理像素的闪烁风险。
+ */
+pub(super) fn reinforce_window_topmost(window: &tauri::WebviewWindow) -> Result<(), String> {
+    zorder::assert_on_top(window)
+}
+
+/**
+ * 读取用户的窗口置顶偏好。
+ *
+ * 返回 `None` 表示设置状态尚未就绪 —— 调用方应按"未就绪则保持既有默认
+ * 行为"处理。该偏好是浮窗置顶的唯一权威来源：用户在设置中关闭置顶后，
+ * 所有浮窗层级维护（显示时置顶、守护修复）都必须停止介入。
+ */
+pub(super) fn topmost_preference(app: &AppHandle) -> Option<bool> {
+    app.try_state::<crate::settings::SettingsState>()?
+        .get()
+        .ok()
+        .map(|settings| settings.main_window_always_on_top)
+}
+
+/**
+ * 按用户偏好将窗口置于顶层。
+ *
+ * 设置未就绪时沿用默认置顶行为，就绪后以设置值为准。所有"显示窗口后
+ * 需要置顶"的调用点都应经由此函数，以保证置顶策略只有一个判定入口。
+ * 置顶失败不向上传播 —— 层级维护属于尽力而为的增强，不应阻断窗口显隐。
+ */
+pub(super) fn apply_topmost_per_preference(app: &AppHandle, window: &tauri::WebviewWindow) {
+    if !topmost_preference(app).unwrap_or(true) {
+        return;
+    }
+    let label = window.label().to_string();
+    if let Err(error) = reinforce_window_topmost(window) {
+        eprintln!("无法将 {label} 窗口置于顶层: {error}");
+    }
+}
+
+/**
+ * 对所有已显示的浮窗重新施加置顶状态。
+ *
+ * 该函数是层级问题的确定性兜底：DPI 变化、显示器热插拔、资源管理器重启、
+ * 或跨进程 topmost 竞争导致层级漂移后，统一修复。
+ */
+pub fn reinforce_overlay_windows_topmost(app: &AppHandle) {
+    reinforce_overlay_windows_topmost_enabled(app, true);
+}
+
+/** 按指定置顶状态刷新所有已显示的浮窗层级。 */
+fn reinforce_overlay_windows_topmost_enabled(app: &AppHandle, topmost: bool) {
+    let windows = OVERLAY_WINDOW_LABELS
+        .iter()
+        .filter_map(|label| {
+            let window = app.get_webview_window(label)?;
+            window.is_visible().ok().filter(|visible| *visible)?;
+            Some((*label, window))
+        })
+        .collect::<Vec<_>>();
+    if !topmost {
+        for (label, window) in &windows {
+            if let Err(error) = window.set_always_on_top(false) {
+                eprintln!("无法取消 {label} 窗口置顶: {error}");
+            }
+        }
+        return;
+    }
+    for (label, error) in zorder::ensure_all_on_top(windows) {
+        eprintln!("无法恢复 {label} 窗口层级: {error}");
+    }
 }
 
 fn present_main_window(app: &AppHandle, focus: bool) -> Result<(), String> {
@@ -171,6 +258,10 @@ fn present_main_window(app: &AppHandle, focus: bool) -> Result<(), String> {
         .ok_or_else(|| "找不到桌宠窗口".to_string())?;
     let _ = window.unminimize();
     window.show().map_err(|error| error.to_string())?;
+    // 先让桌宠回到 topmost 层顶部，再同步浮窗，确保浮窗排在桌宠之上
+    if let Err(error) = zorder::ensure_on_top(&window) {
+        eprintln!("无法恢复桌宠窗口层级: {error}");
+    }
     reposition_visible_overlays(app);
     sync_info_window_visibility(app)?;
     sync_reminder_window_visibility(app)?;

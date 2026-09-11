@@ -256,6 +256,8 @@ pub fn run() {
                         if let Err(error) = windowing::reclamp_main_window_position(&app_handle) {
                             eprintln!("无法在 DPI 变化后重新约束桌宠窗口: {error}");
                         }
+                        // DPI 变化会重建窗口渲染目标，topmost 标记可能丢失，统一修复
+                        windowing::reinforce_overlay_windows_topmost(&app_handle);
                         if let Some(settings) = app_handle.try_state::<settings::SettingsState>() {
                             if let Some(window) =
                                 app_handle.get_webview_window(windowing::MAIN_WINDOW)
@@ -289,6 +291,9 @@ pub fn run() {
                     }
                 });
             }
+            // 低频层级守护：兜底事件钩子无法覆盖的漂移场景
+            // （显示器热插拔、explorer.exe 重启、跨进程 topmost 竞争等）
+            windowing::start_overlay_guard(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())
