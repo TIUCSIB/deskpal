@@ -338,19 +338,26 @@ pub(super) fn reposition_overlay(app: &AppHandle, label: &str) -> Result<Overlay
  *
  * 置顶受用户偏好约束：设置未就绪（`None`）时保持默认置顶，就绪后以设置值
  * 为准。用户关闭置顶时不得再次强制施加，否则设置项将形同虚设。
+ *
+ * **已显示窗口的快速路径**：若窗口已经可见，则跳过重新定位与置顶。位置由
+ * 桌宠窗口驱动维护（拖拽 / 缩放 / 显示器变化时另有 `reposition_visible_overlays`
+ * 统一处理），无需每次悬停请求都重算。这条路径是悬停响应延迟的主要优化点 ——
+ * 重定位含 3 次系统调用（窗口位置、尺寸、工作区查询），置顶含 1 次
+ * `SetWindowPos`，合计约 5–8 次跨内核调用，都会叠加在用户可感知的延迟上。
  */
 fn present_overlay(app: &AppHandle, label: &str) -> Result<(), String> {
-    let placement = reposition_overlay(app, label)?;
     let overlay = app
         .get_webview_window(label)
         .ok_or_else(|| format!("找不到 {label} 窗口"))?;
     let was_hidden = !overlay.is_visible().map_err(|error| error.to_string())?;
+    if !was_hidden {
+        // 已显示：层级与位置均已就绪，直接复用，避免重复的系统调用开销
+        return Ok(());
+    }
+    let placement = reposition_overlay(app, label)?;
     overlay.show().map_err(|error| error.to_string())?;
     apply_topmost_per_preference(app, &overlay);
-    if was_hidden {
-        overlay
-            .emit(OVERLAY_PRESENT_EVENT, placement.side)
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(())
+    overlay
+        .emit(OVERLAY_PRESENT_EVENT, placement.side)
+        .map_err(|error| error.to_string())
 }
