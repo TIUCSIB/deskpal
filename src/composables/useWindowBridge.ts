@@ -31,12 +31,20 @@ export function sendPetContext(recipient: PetContextRecipient, context: PetConte
   return emitTo(recipient, WINDOW_EVENTS.petContext, context)
 }
 
+/**
+ * 广播桌宠上下文到所有订阅窗口。
+ *
+ * 投递目标必须与实际调用 `usePetContextReceiver` 的窗口严格一致：
+ * `reminder` 与 `feedback` 窗口不消费上下文，向它们投递只会产生无接收方的
+ * IPC 序列化与跨窗口派发开销。由于 `SystemInfo` 以 1 秒周期变化，此处每次
+ * 多投递一个窗口就等于每秒多一次无效 IPC。
+ *
+ * 当前订阅方：`chat`（显示宠物与系统信息）、`info`（悬停系统信息浮窗）。
+ */
 export async function broadcastPetContext(context: PetContext) {
   await Promise.allSettled([
     sendPetContext('chat', context),
     sendPetContext('info', context),
-    sendPetContext('reminder', context),
-    sendPetContext('feedback', context),
   ])
 }
 

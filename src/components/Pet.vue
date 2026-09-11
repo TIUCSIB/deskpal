@@ -3,7 +3,7 @@
  * Pet.vue - 桌宠角色（精灵表动画）
  * 使用像素命中确保只有角色非透明区域响应交互。
  */
-import { computed, watch } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 import { DEFAULT_PET_ROLE, getPetRole } from '@/config/petRoles'
 import type { PetRoleId } from '@/types/pet'
 import { useSpriteAnimation } from '@/composables/useSpriteAnimation'
@@ -47,11 +47,21 @@ const {
   playNamedAnimation,
 } = useSpriteAnimation(role)
 
-const { hitTest } = usePixelHitTest(
+const { hitTest, setFrameKey } = usePixelHitTest(
   spritesheetUrl,
   backgroundPosition,
   backgroundSize,
 )
+
+/**
+ * 帧位置变化时失效逐像素缓存。
+ *
+ * `backgroundPosition` 唯一标识了当前帧在精灵表上的位置（由帧索引、
+ * 动画行、缩放共同决定），因此可直接作为缓存键。同一容器坐标在不同帧
+ * 对应不同源图像素，不失效会得到错误的命中结果。
+ */
+watch(backgroundPosition, (position) => setFrameKey(position), { immediate: true })
+
 let hoveringPetPixel = false
 
 type PointerLikeEvent = MouseEvent | PointerEvent | WheelEvent
@@ -114,22 +124,47 @@ function handleContextMenu(event: MouseEvent) {
 }
 
 function handlePointerEnter(event: PointerEvent) {
+  pendingHoverEvent = event
   syncHoverState(event)
 }
 
+let pendingHoverEvent: PointerEvent | null = null
+let hoverRafId = 0
+
+/**
+ * 按动画帧节流的悬停评测。
+ *
+ * `pointermove` 在高刷新率设备上可达 120 Hz，而每次评测都要做像素级
+ * 命中检测（同步 GPU→CPU 回读）。同一帧内指针的多次移动只需最后一次
+ * 结果，故合并到 `requestAnimationFrame` 中执行一次。
+ */
 function handlePointerMove(event: PointerEvent) {
-  syncHoverState(event)
-}
-
-function handleMouseMove(event: MouseEvent) {
-  syncHoverState(event)
+  pendingHoverEvent = event
+  if (hoverRafId) return
+  hoverRafId = requestAnimationFrame(() => {
+    hoverRafId = 0
+    const pending = pendingHoverEvent
+    pendingHoverEvent = null
+    if (pending) syncHoverState(pending)
+  })
 }
 
 function handleMouseLeave() {
+  if (hoverRafId) {
+    cancelAnimationFrame(hoverRafId)
+    hoverRafId = 0
+    pendingHoverEvent = null
+  }
   if (!hoveringPetPixel) return
   hoveringPetPixel = false
   emit('hoverChange', false)
 }
+
+onUnmounted(() => {
+  if (hoverRafId) cancelAnimationFrame(hoverRafId)
+  hoverRafId = 0
+  pendingHoverEvent = null
+})
 
 /** 非透明像素上的滚轮缩放 */
 function handleWheel(event: WheelEvent) {
@@ -142,8 +177,35 @@ function handleWheel(event: WheelEvent) {
   emit('scaleChange', nextScale)
 }
 
+/**
+ * 依据当前指针位置重新评测 hover。
+ *
+ * 用途：原生层可能因浮窗互斥仲裁主动隐藏了信息窗，但本组件的去重状态
+ * `hoveringPetPixel` 仍为 true，导致后续 pointermove 不再上报。该函数在
+ * 拖拽结束、窗口重新激活等时机被调用，强制收敛状态。
+ *
+ * @param event 可选的指针事件；缺省时按"未命中"处理，避免残留 hover
+ */
+function reevaluateHover(event?: PointerLikeEvent) {
+  const hovering = event ? isPetPixel(event) : false
+  if (hovering === hoveringPetPixel) {
+    // 状态未变，但原生层可能已隐藏浮窗，需强制重发一次以触发重新显示
+    if (hovering) emit('hoverChange', true)
+    return
+  }
+  hoveringPetPixel = hovering
+  emit('hoverChange', hovering)
+}
+
 /** 暴露给主窗口的缩放控制、尺寸信息与动画控制 */
-defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight, playNamedAnimation })
+defineExpose({
+  sizeScale,
+  setSizeScale,
+  frameWidth,
+  frameHeight,
+  playNamedAnimation,
+  reevaluateHover,
+})
 </script>
 
 <template>
@@ -157,7 +219,6 @@ defineExpose({ sizeScale, setSizeScale, frameWidth, frameHeight, playNamedAnimat
     @click="handleClick"
     @dblclick="handleDoubleClick"
     @contextmenu="handleContextMenu"
-    @mousemove="handleMouseMove"
     @mouseleave="handleMouseLeave"
   >
     <div

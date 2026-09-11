@@ -39,4 +39,5 @@ export const WINDOW_EVENTS = {
   reminderTriggered: 'pet://reminder-triggered',
   systemFeedbackPayload: 'pet://system-feedback-payload',
   overlayPresent: 'overlay://present',
+  overlaySuppressed: 'overlay://suppressed',
 } as const

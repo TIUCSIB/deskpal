@@ -70,8 +70,40 @@ describe('usePixelHitTest', () => {
     expect(pixelHitTest?.hitTest(20, 30)).toBe(false)
     expect(drawImage).toHaveBeenCalledWith(expect.any(MockImage), 20, 30, 1, 1, 0, 0, 1, 1)
 
+    // 换一帧后同一容器坐标对应不同源图像素，缓存须失效并重新回读
+    pixelHitTest?.setFrameKey('0px -100px')
     getImageData.mockReturnValue({ data: new Uint8ClampedArray([0, 0, 0, 255]) } as ImageData)
     expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('reuses the cached alpha result for a repeated pixel within one frame', async () => {
+    getImageData.mockReturnValue({ data: new Uint8ClampedArray([0, 0, 0, 255]) } as ImageData)
+    const wrapper = mount(Host)
+    await nextTick()
+
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(true)
+
+    // 同一帧内同一像素只回读一次；getImageData 是同步的 GPU→CPU 回读，
+    // 在 pointermove 频率下重复调用会构成明显开销。
+    expect(getImageData).toHaveBeenCalledOnce()
+    expect(drawImage).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+
+  it('invalidates the pixel cache when the frame changes', async () => {
+    getImageData.mockReturnValue({ data: new Uint8ClampedArray([0, 0, 0, 0]) } as ImageData)
+    const wrapper = mount(Host)
+    await nextTick()
+
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(false)
+    pixelHitTest?.setFrameKey('0px -100px')
+    expect(pixelHitTest?.hitTest(20, 30)).toBe(false)
+
+    // 帧变化后必须重新回读，否则会返回上一帧的陈旧结果
+    expect(getImageData).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 

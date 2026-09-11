@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PetContext, ReminderPayload } from '@/types/window'
 import {
+  broadcastPetContext,
   usePetContextReceiver,
   useReminderPayloadReceiver,
 } from '@/composables/useWindowBridge'
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => {
     handlers.set(eventName, handler)
     return unlisten
   })
-  const emitTo = vi.fn(async () => {})
+  const emitTo = vi.fn(async (_target: string, _event: string, _payload?: unknown) => {})
 
   return {
     handlers,
@@ -139,5 +140,21 @@ describe('useWindowBridge', () => {
       message: '',
       snooze_minutes: 5,
     } satisfies ReminderPayload)
+  })
+
+  it('broadcasts context only to windows that subscribe to it', async () => {
+    await broadcastPetContext(CONTEXT)
+
+    const recipients = mocks.emitTo.mock.calls.map((call) => call[0])
+
+    // 必须覆盖全部订阅方，否则窗口会停留在陈旧上下文
+    expect(recipients).toContain('chat')
+    expect(recipients).toContain('info')
+
+    // 不得投递到无接收方的窗口：SystemInfo 以 1 秒周期变化，
+    // 每次多投递一个窗口就等于每秒多一次无效 IPC 序列化与派发。
+    expect(recipients).not.toContain('reminder')
+    expect(recipients).not.toContain('feedback')
+    expect(mocks.emitTo).toHaveBeenCalledTimes(2)
   })
 })

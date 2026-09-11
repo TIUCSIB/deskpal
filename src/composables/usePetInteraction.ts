@@ -20,6 +20,7 @@ export function usePetInteraction(
   options: UsePetInteractionOptions = {},
 ) {
   const isDragging = ref(false)
+  const isDragAnimating = ref(false)
   const dragDirection = ref<DragDirection | null>(null)
   let dragStartX = 0
   let dragStartY = 0
@@ -75,6 +76,7 @@ export function usePetInteraction(
     dragActive = true
     dragDirection.value = event.screenX >= dragStartX ? 'right' : 'left'
     isDragging.value = true
+    isDragAnimating.value = true
     suppressNextClick = true
     try {
       await getCurrentWindow().startDragging()
@@ -83,8 +85,13 @@ export function usePetInteraction(
     } finally {
       dragActive = false
       mouseDownOnPet = false
+      // 拖拽结束立即复位 isDragging：它同时作为 hover 判定的互斥条件，
+      // 若延迟复位会在落地动画期间持续吞掉鼠标悬停事件。
+      isDragging.value = false
+      if (dragReleaseTimer) clearTimeout(dragReleaseTimer)
       dragReleaseTimer = setTimeout(() => {
-        isDragging.value = false
+        // 仅动画保持状态延迟复位，与拖拽互斥语义解耦。
+        isDragAnimating.value = false
         dragDirection.value = null
         suppressNextClick = false
         dragReleaseTimer = null
@@ -112,6 +119,7 @@ export function usePetInteraction(
     shouldActivate,
     tryTriggerClickFeedback,
     isDragging,
+    isDragAnimating,
     dragDirection,
   }
 }

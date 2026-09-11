@@ -30,6 +30,7 @@ const {
   shouldActivate,
   tryTriggerClickFeedback,
   isDragging,
+  isDragAnimating,
   dragDirection,
 } = usePetInteraction(Date.now, {
   leftClickPassthrough: () => leftClickPassthrough.value,
@@ -53,6 +54,7 @@ const sizeLocked = computed(() => settings.value.size_locked)
 const activeRoleId = computed(() => ready.value ? getPetRole(settings.value.pet_role).id : undefined)
 let unlistenScale: UnlistenFn | null = null
 let unlistenContextRequest: UnlistenFn | null = null
+let unlistenOverlaySuppressed: UnlistenFn | null = null
 let listenersDisposed = false
 
 function currentPetContext(): PetContext {
@@ -67,6 +69,10 @@ function currentPetContext(): PetContext {
 }
 
 function broadcastCurrentContext() {
+  // 拖拽期间信息窗被强制隐藏，且拖拽本身会高频移动窗口导致重渲染，
+  // 此时每秒广播上下文只会造成无谓的 IPC 与目标窗口重渲染。
+  // 拖拽结束时 `watch(isDragging)` 会重新请求显示并触发一次补发。
+  if (isDragging.value) return Promise.resolve()
   return broadcastPetContext(currentPetContext())
 }
 
@@ -101,19 +107,35 @@ watch(interactionText, () => {
 })
 
 watch(
+  isDragAnimating,
+  (animating) => {
+    setDragging(animating ? dragDirection.value : null)
+  },
+  { flush: 'sync' },
+)
+
+// 拖拽动画保持状态与信息窗显隐解耦：
+// 动画需延迟复位以播完落地动作，而信息窗应在指针抬起后立即恢复判定。
+watch(
   isDragging,
   (dragging) => {
-    setDragging(dragging ? dragDirection.value : null)
     if (dragging) {
       void invoke('set_info_window_visible', { visible: false }).catch((error: unknown) => {
         console.error('拖拽时隐藏系统信息窗口失败:', error)
       })
       return
     }
+    // 拖拽结束时若指针仍在宠物上，重新请求显示信息窗。
     if (hovering.value) void handlePetHover(true)
   },
   { flush: 'sync' },
 )
+
+// 设置就绪后补发一次上下文：覆盖 loadSettings 未完成期间被跳过的广播
+watch(ready, (isReady) => {
+  if (!isReady) return
+  void broadcastCurrentContext()
+})
 
 watch(
   dragDirection,
@@ -197,11 +219,15 @@ function persistPetScale(scale: number) {
 async function handlePetHover(hovering: boolean) {
   if (isDragging.value && hovering) return
   setHovering(hovering)
-  const visible = hovering && !isDragging.value
+  // 动画保持期间（拖拽刚结束、落地动作仍在播放）不弹出信息窗，
+  // 避免窗口刚从拖拽位移中稳定下来就被浮窗遮挡。
+  const visible = hovering && !isDragAnimating.value
   try {
     await invoke('set_info_window_visible', { visible })
     if (!visible) return
-    if (ready.value) await broadcastCurrentContext()
+    // 上下文广播不依赖设置是否就绪：设置未就绪时使用当前已知值发送一次，
+    // 避免信息窗显示后停留在初始空上下文。设置加载完成后还有后续广播兜底。
+    await broadcastCurrentContext()
   } catch (error) {
     console.error('切换系统信息窗口失败:', error)
   }
@@ -229,24 +255,32 @@ function handleRestoreDefaultSize() {
 
 onMounted(async () => {
   listenersDisposed = false
-  const [nextUnlistenContextRequest, nextUnlistenScale] = await Promise.all([
-    listen<PetContextRequest>(WINDOW_EVENTS.petContextRequest, (event) => {
-      if (!ready.value) return
-      void sendPetContext(event.payload.recipient, currentPetContext()).catch((error: unknown) => {
-        console.error('回复浮窗状态请求失败:', error)
-      })
-    }),
-    listen<number>(WINDOW_EVENTS.setScale, (event) => {
-      petRef.value?.setSizeScale(event.payload)
-    }),
-  ])
+  const [nextUnlistenContextRequest, nextUnlistenScale, nextUnlistenSuppressed] =
+    await Promise.all([
+      listen<PetContextRequest>(WINDOW_EVENTS.petContextRequest, (event) => {
+        if (!ready.value) return
+        void sendPetContext(event.payload.recipient, currentPetContext()).catch((error: unknown) => {
+          console.error('回复浮窗状态请求失败:', error)
+        })
+      }),
+      listen<number>(WINDOW_EVENTS.setScale, (event) => {
+        petRef.value?.setSizeScale(event.payload)
+      }),
+      listen<string>(WINDOW_EVENTS.overlaySuppressed, () => {
+        // 原生层因互斥仲裁隐藏了浮窗，重置 hover 去重状态，
+        // 使指针保持悬停时也能重新触发显示。
+        petRef.value?.reevaluateHover()
+      }),
+    ])
   if (listenersDisposed) {
     nextUnlistenContextRequest()
     nextUnlistenScale()
+    nextUnlistenSuppressed()
     return
   }
   unlistenContextRequest = nextUnlistenContextRequest
   unlistenScale = nextUnlistenScale
+  unlistenOverlaySuppressed = nextUnlistenSuppressed
 
   const loaded = await loadSettings()
   await nextTick()
@@ -266,6 +300,7 @@ onUnmounted(() => {
   listenersDisposed = true
   unlistenContextRequest?.()
   unlistenScale?.()
+  unlistenOverlaySuppressed?.()
   disposeInteraction()
   dispose()
 })
